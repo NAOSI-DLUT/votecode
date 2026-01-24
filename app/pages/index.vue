@@ -9,7 +9,7 @@
         variant="naked"
       >
         <template #links>
-          <UButton> Get Started </UButton>
+          <UButton>Get Started</UButton>
         </template></UPageCTA
       >
     </UPage>

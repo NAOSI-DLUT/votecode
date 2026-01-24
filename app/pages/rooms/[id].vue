@@ -2,4 +2,4 @@
 const { id } = useRoute().params;
 </script>
 
-<template>welcome to page {{ id }}</template>
+<template>welcome to room {{ id }}</template>
