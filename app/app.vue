@@ -1,9 +1,15 @@
+<script setup lang="ts">
+useHead({
+  titleTemplate: (title) => (title ? `${title} - votecode` : "votecode"),
+});
+</script>
+
 <template>
-  <Uapp>
+  <UApp>
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-  </Uapp>
+  </UApp>
 </template>
 
 <style>

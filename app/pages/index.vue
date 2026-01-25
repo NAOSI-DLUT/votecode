@@ -1,17 +1,60 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+const toast = useToast();
+const { data: pages } = useFetch("/api/pages");
+
+const createPageId = ref("");
+
+function createPage() {
+  if (!createPageId.value) return;
+  $fetch(`/api/pages/${createPageId.value}`, {
+    method: "POST",
+  })
+    .catch(() => {
+      toast.add({
+        title: "Oops!",
+        description: `Page ${createPageId.value} already exists`,
+      });
+    })
+    .finally(() => {
+      navigateTo(`/` + createPageId.value);
+    });
+}
+</script>
 
 <template>
   <UContainer>
     <UPage>
       <UPageCTA
         title="votecode"
-        description="We've built a strong, lasting partnership. Their trust is our driving force, propelling us towards shared success."
+        description="Vote on prompts, code together and share the vibe 🎉"
         variant="naked"
+      />
+      <UPageList>
+        <UPageCard
+          v-for="page in pages"
+          :key="page.id"
+          variant="ghost"
+          :title="page.id"
+          :to="`/${page.id}`"
+        >
+          <template #footer>
+            <UBadge icon="lucide-flame" variant="subtle"
+              >{{ page.voteCount }} votes</UBadge
+            >
+          </template>
+        </UPageCard>
+      </UPageList>
+      <UEmpty
+        variant="naked"
+        icon="lucide-plus"
+        :title="pages?.length ? 'Or create another page...' : 'No pages yet'"
+        :description="pages?.length ? '' : 'Create a page to get started'"
       >
-        <template #links>
-          <UButton>Get Started</UButton>
-        </template></UPageCTA
-      >
+        <template #actions>
+          <UInput v-model="createPageId" />
+          <UButton @click="createPage">Create page</UButton>
+        </template>
+      </UEmpty>
     </UPage>
   </UContainer>
 </template>

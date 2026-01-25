@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial().primaryKey(),
@@ -7,26 +7,27 @@ export const users = pgTable("users", {
   avatar: text().notNull(),
 });
 
-export const rooms = pgTable("rooms", {
+export const pages = pgTable("pages", {
   id: text().primaryKey(),
 });
 
-export const prompts = pgTable("prompts", {
+export const messages = pgTable("messages", {
   id: serial().primaryKey(),
-  roomId: text()
-    .references(() => rooms.id)
+  pageId: text()
+    .references(() => pages.id)
     .notNull(),
   userId: serial()
     .references(() => users.id)
     .notNull(),
   content: text().notNull(),
   response: text(),
+  createdAt: timestamp().defaultNow().notNull(),
 });
 
 export const votes = pgTable("votes", {
   id: serial().primaryKey(),
-  promptId: serial()
-    .references(() => prompts.id)
+  messageId: serial()
+    .references(() => messages.id)
     .notNull(),
   userId: serial()
     .references(() => users.id)

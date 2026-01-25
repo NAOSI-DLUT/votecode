@@ -1,9 +1,10 @@
 export default defineOAuthGitHubEventHandler({
-  config: { emailRequired: true },
-  async onSuccess(event, { user, tokens }) {
+  async onSuccess(event, { user }) {
     await setUserSession(event, {
       user: {
-        email: user.email!,
+        name: user.name,
+        avatar_url: user.avatar_url,
+        html_url: user.html_url,
       },
     });
     return sendRedirect(event, "/");
