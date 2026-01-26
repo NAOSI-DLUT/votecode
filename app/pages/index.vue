@@ -56,7 +56,7 @@ function createPage() {
       <UEmpty
         variant="naked"
         icon="lucide-plus"
-        :title="pages?.length ? 'Or create another page...' : 'No pages yet'"
+        :title="pages?.length ? 'Or create another page…' : 'No pages yet'"
         :description="pages?.length ? '' : 'Create a page to get started'"
       >
         <template #actions>

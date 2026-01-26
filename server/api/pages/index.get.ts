@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { sql, count, eq, desc } from "drizzle-orm";
+import { count, eq, desc } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
   return db

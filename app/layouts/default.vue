@@ -1,15 +1,42 @@
 <script setup lang="ts">
+import type { ChatMessageProps } from "@nuxt/ui";
 const { user, clear } = useUserSession();
+const { page } = useRoute().params;
 
 const route = useRoute();
+const toast = useToast();
 
 const userMenuItems = computed(() => {
   return [{ label: "Logout", icon: "lucide-log-out", onSelect: clear }];
 });
+
+const messages = ref<ChatMessageProps[]>([]);
+const prompt = ref("");
+
+function submitPrompt() {
+  if (prompt.value.trim() === "") return;
+  $fetch
+    .raw(`/api/pages/${page}/prompts`, {
+      method: "POST",
+      body: { content: prompt.value, page },
+    })
+    .then(({ status }) => {
+      toast.add({
+        title: status === 201 ? "Prompt submitted" : "Prompt updated",
+        color: "success",
+      });
+    })
+    .catch(() => {
+      toast.add({
+        title: "Failed to submit prompt",
+        color: "error",
+      });
+    });
+}
 </script>
 
 <template>
-  <UDashboardGroup>
+  <UDashboardGroup storage="local">
     <UDashboardSidebar
       resizable
       :min-size="20"
@@ -35,9 +62,15 @@ const userMenuItems = computed(() => {
           title="👋 Hi there"
           description="Select a page to start votecoding!"
         />
-        <UChatMessages />
-        <UChatPrompt variant="soft" :disabled="route.path === '/' || !user">
-          <UChatPromptSubmit />
+        <UChatMessages :messages="messages" />
+        <UChatPrompt
+          variant="soft"
+          :disabled="route.path === '/' || !user"
+          :placeholder="user ? '' : 'Please sign in to continue…'"
+          v-model="prompt"
+          @submit="submitPrompt"
+        >
+          <UChatPromptSubmit :disabled="route.path === '/' || !user" />
         </UChatPrompt>
       </template>
     </UDashboardSidebar>
