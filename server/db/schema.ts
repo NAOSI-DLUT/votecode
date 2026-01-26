@@ -1,35 +1,35 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
-  id: serial().primaryKey(),
+  id: integer().primaryKey(),
   name: text().notNull(),
-  email: text().notNull().unique(),
-  avatar: text().notNull(),
+  avatar_url: text().notNull(),
+  html_url: text().notNull(),
 });
 
 export const pages = pgTable("pages", {
   id: text().primaryKey(),
 });
 
-export const messages = pgTable("messages", {
+export const prompts = pgTable("prompts", {
   id: serial().primaryKey(),
-  pageId: text()
+  page_id: text()
     .references(() => pages.id)
     .notNull(),
-  userId: serial()
+  user_id: integer()
     .references(() => users.id)
     .notNull(),
   content: text().notNull(),
   response: text(),
-  createdAt: timestamp().defaultNow().notNull(),
+  created_at: timestamp().defaultNow().notNull(),
 });
 
 export const votes = pgTable("votes", {
   id: serial().primaryKey(),
-  messageId: serial()
-    .references(() => messages.id)
+  prompt_id: serial()
+    .references(() => prompts.id)
     .notNull(),
-  userId: serial()
+  user_id: integer()
     .references(() => users.id)
     .notNull(),
 });

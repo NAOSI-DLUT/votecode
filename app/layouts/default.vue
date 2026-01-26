@@ -36,7 +36,7 @@ const userMenuItems = computed(() => {
           description="Select a page to start votecoding!"
         />
         <UChatMessages />
-        <UChatPrompt variant="soft">
+        <UChatPrompt variant="soft" :disabled="route.path === '/' || !user">
           <UChatPromptSubmit />
         </UChatPrompt>
       </template>
