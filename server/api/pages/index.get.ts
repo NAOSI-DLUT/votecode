@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { sql, count, eq } from "drizzle-orm";
+import { sql, count, eq, desc } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
   return db
@@ -8,9 +8,9 @@ export default defineEventHandler(async (event) => {
       voteCount: count(schema.votes.id).as("voteCount"),
     })
     .from(schema.pages)
-    .leftJoin(schema.messages, eq(schema.messages.pageId, schema.pages.id))
-    .leftJoin(schema.votes, eq(schema.votes.messageId, schema.messages.id))
+    .leftJoin(schema.prompts, eq(schema.prompts.page_id, schema.pages.id))
+    .leftJoin(schema.votes, eq(schema.votes.prompt_id, schema.prompts.id))
     .groupBy(schema.pages.id)
-    .orderBy(sql`${count(schema.votes.id)} DESC`)
+    .orderBy(desc(count(schema.votes.id)))
     .limit(10);
 });

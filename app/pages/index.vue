@@ -9,14 +9,23 @@ function createPage() {
   $fetch(`/api/pages/${createPageId.value}`, {
     method: "POST",
   })
-    .catch(() => {
-      toast.add({
-        title: "Oops!",
-        description: `Page ${createPageId.value} already exists`,
-      });
-    })
-    .finally(() => {
+    .then((res) => {
+      if (!res.length) {
+        toast.add({
+          title: "Oops!",
+          description: `Page ${createPageId.value} already exists`,
+        });
+      }
       navigateTo(`/` + createPageId.value);
+    })
+    .catch((err) => {
+      console.dir(err);
+
+      toast.add({
+        title: "Failed to create page",
+        description: err.data?.message || err.message,
+        color: "error",
+      });
     });
 }
 </script>
