@@ -1,37 +1,71 @@
 <script setup lang="ts">
 import type { ChatMessageProps } from "@nuxt/ui";
-const { user, clear } = useUserSession();
+const supabase = useSupabaseClient();
+const user = useSupabaseUser();
 const { page } = useRoute().params;
 
 const route = useRoute();
 const toast = useToast();
 
 const userMenuItems = computed(() => {
-  return [{ label: "Logout", icon: "lucide-log-out", onSelect: clear }];
+  return [
+    {
+      label: "Logout",
+      icon: "lucide-log-out",
+      onSelect: () => supabase.auth.signOut(),
+    },
+  ];
 });
 
 const messages = ref<ChatMessageProps[]>([]);
+const hasPendingPrompt = ref(false);
 const prompt = ref("");
 
 function submitPrompt() {
   if (prompt.value.trim() === "") return;
-  $fetch
-    .raw(`/api/pages/${page}/prompts`, {
-      method: "POST",
-      body: { content: prompt.value, page },
-    })
-    .then(({ status }) => {
-      toast.add({
-        title: status === 201 ? "Prompt submitted" : "Prompt updated",
-        color: "success",
+  if (hasPendingPrompt.value) {
+    supabase
+      .from("prompts")
+      .update({
+        content: prompt.value,
+      })
+      .eq("page_id", page as string)
+      .eq("user_id", user.value?.id as string)
+      .then(({ error }) => {
+        if (error) {
+          toast.add({
+            title: "Failed to update prompt",
+            color: "error",
+          });
+        } else {
+          toast.add({
+            title: "Prompt updated",
+            color: "success",
+          });
+        }
       });
-    })
-    .catch(() => {
-      toast.add({
-        title: "Failed to submit prompt",
-        color: "error",
+  } else {
+    supabase
+      .from("prompts")
+      .insert({
+        content: prompt.value,
+        page_id: page as string,
+        user_id: user.value?.id as string,
+      })
+      .then(({ error }) => {
+        if (error) {
+          toast.add({
+            title: "Failed to submit prompt",
+            color: "error",
+          });
+        } else {
+          toast.add({
+            title: "Prompt submitted",
+            color: "success",
+          });
+        }
       });
-    });
+  }
 }
 </script>
 

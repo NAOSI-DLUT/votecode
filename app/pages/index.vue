@@ -1,31 +1,41 @@
 <script setup lang="ts">
+const supabase = useSupabaseClient();
 const toast = useToast();
-const { data: pages } = useFetch("/api/pages");
+const { data: pages } = useAsyncData(async () => {
+  return supabase.rpc("get_pages_with_vote_count").then(({ data, error }) => {
+    if (error) {
+      toast.add({
+        title: "Failed to fetch pages",
+        description: error.message,
+        color: "error",
+      });
+      return [];
+    }
+    return data;
+  });
+});
 
 const createPageId = ref("");
 
 function createPage() {
-  if (!createPageId.value) return;
-  $fetch(`/api/pages/${createPageId.value}`, {
-    method: "POST",
-  })
-    .then((res) => {
-      if (!res.length) {
+  if (!createPageId.value.trim()) return;
+  supabase
+    .from("pages")
+    .insert({ id: createPageId.value.trim() })
+    .then(({ error }) => {
+      if (error) {
         toast.add({
-          title: "Oops!",
-          description: `Page ${createPageId.value} already exists`,
+          title: "Failed to create page",
+          description: error.message,
+          color: "error",
         });
+      } else {
+        toast.add({
+          title: "Page created",
+          color: "success",
+        });
+        createPageId.value = "";
       }
-      navigateTo(`/` + createPageId.value);
-    })
-    .catch((err) => {
-      console.dir(err);
-
-      toast.add({
-        title: "Failed to create page",
-        description: err.data?.message || err.message,
-        color: "error",
-      });
     });
 }
 </script>
@@ -48,7 +58,7 @@ function createPage() {
         >
           <template #footer>
             <UBadge icon="lucide-flame" variant="subtle"
-              >{{ page.voteCount }} votes</UBadge
+              >{{ page.vote_count }} votes</UBadge
             >
           </template>
         </UPageCard>
