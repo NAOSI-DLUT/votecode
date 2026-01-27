@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ChatMessageProps } from "@nuxt/ui";
 const { user, clear } = useUserSession();
-const { page } = useRoute().params;
+const { page_id } = useRoute().params;
 
 const route = useRoute();
 const toast = useToast();
@@ -15,21 +15,20 @@ const prompt = ref("");
 
 function submitPrompt() {
   if (prompt.value.trim() === "") return;
-  $fetch
-    .raw(`/api/pages/${page}/prompts`, {
-      method: "POST",
-      body: { content: prompt.value, page },
-    })
-    .then(({ status }) => {
+  $fetch(`/api/pages/${page_id}/prompts`, {
+    method: "POST",
+    body: { content: prompt.value },
+  })
+    .then(() => {
       toast.add({
-        title: status === 201 ? "Prompt submitted" : "Prompt updated",
+        title: "Prompt submitted",
         color: "success",
       });
     })
-    .catch(() => {
+    .catch((err) => {
       toast.add({
         title: "Failed to submit prompt",
-        color: "error",
+        color: err.data?.message || err.message,
       });
     });
 }

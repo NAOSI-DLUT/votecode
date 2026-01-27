@@ -19,8 +19,6 @@ function createPage() {
       navigateTo(`/` + createPageId.value);
     })
     .catch((err) => {
-      console.dir(err);
-
       toast.add({
         title: "Failed to create page",
         description: err.data?.message || err.message,
