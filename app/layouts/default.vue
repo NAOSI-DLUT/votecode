@@ -1,13 +1,38 @@
 <script setup lang="ts">
 import type { ChatMessageProps } from "@nuxt/ui";
 const { user, clear } = useUserSession();
-const { page_id } = useRoute().params;
-
 const route = useRoute();
 const toast = useToast();
 
+const { page_id } = route.params;
+let reader: ReadableStreamDefaultReader<Uint8Array<ArrayBufferLike>>;
+
 const userMenuItems = computed(() => {
   return [{ label: "Logout", icon: "lucide-log-out", onSelect: clear }];
+});
+
+onMounted(() => {
+  watchEffect(async () => {
+    if (reader) {
+      reader.cancel();
+      console.log("stream cancelled");
+    }
+    if (route.path !== "/") {
+      const stream = await $fetch<ReadableStream<Uint8Array>>(
+        `/api/pages/${page_id}/sse`,
+      );
+      console.log(`connected to ${page_id}`);
+
+      reader = stream.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          console.log(new TextDecoder().decode(value));
+        }
+      }
+    }
+  });
 });
 
 const messages = ref<ChatMessageProps[]>([]);

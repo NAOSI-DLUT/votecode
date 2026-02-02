@@ -1,5 +1,6 @@
 CREATE TABLE "pages" (
-	"id" text PRIMARY KEY NOT NULL
+	"id" text PRIMARY KEY NOT NULL,
+	"html" text DEFAULT '' NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "prompts" (

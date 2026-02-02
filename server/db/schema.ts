@@ -18,6 +18,7 @@ export const users = pgTable("users", {
 
 export const pages = pgTable("pages", {
   id: text().primaryKey(),
+  html: text().notNull().default(""),
 });
 
 export const prompts = pgTable(

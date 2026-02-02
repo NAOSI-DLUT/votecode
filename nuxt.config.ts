@@ -6,4 +6,7 @@ export default defineNuxtConfig({
   hub: {
     db: "postgresql",
   },
+  ui: {
+    fonts: false,
+  },
 });

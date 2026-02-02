@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { and, eq, isNull } from "drizzle-orm";
+import { isNull } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
   const { page_id } = getRouterParams(event);
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event);
-  return await db
+  const newPrompts = await db
     .insert(schema.prompts)
     .values({
       page_id: page_id,
@@ -31,5 +31,11 @@ export default defineEventHandler(async (event) => {
       target: [schema.prompts.page_id, schema.prompts.user_id],
       targetWhere: isNull(schema.prompts.response),
       set: { content: body.content, created_at: new Date() },
-    });
+    })
+    .returning();
+  if (newPrompts[0]) {
+    const prompts = newPrompts[0];
+    useStorage().setItem(`page:${page_id}:${prompts.id}`, prompts);
+  }
+  return newPrompts[0];
 });
