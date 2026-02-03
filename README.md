@@ -11,7 +11,22 @@ You need to prepare your GitHub OAuth App credentials. Follow the instructions [
 
 Then copy the `.env.example` file to `.env` and fill in your values.
 
-Finally, install dependencies and run the development server:
+### Docker
+
+```bash
+docker pull saurlax/votecode:latest
+docker run -d -p 3000:3000 --name votecode --env-file .env saurlax/votecode:latest
+```
+
+### Manual
+
+```bash
+pnpm install
+pnpm run build
+node .output/server/index.mjs
+```
+
+## Development
 
 ```bash
 pnpm install
