@@ -2,7 +2,12 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
-  modules: ["@nuxthub/core", "@nuxt/ui", "nuxt-auth-utils"],
+  modules: [
+    "@nuxthub/core",
+    "@nuxt/ui",
+    "nuxt-auth-utils",
+    "nuxt-monaco-editor",
+  ],
   hub: {
     db: "postgresql",
   },

@@ -19,7 +19,11 @@ export const users = pgTable("users", {
 
 export const pages = pgTable("pages", {
   id: text().primaryKey(),
-  html: text().notNull().default(""),
+  html: text()
+    .notNull()
+    .default(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>Hello World!</body></html>',
+    ),
 });
 
 export const prompts = pgTable(

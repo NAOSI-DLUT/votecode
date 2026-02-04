@@ -4,6 +4,19 @@ const { user, clear } = useUserSession();
 const userMenuItems = computed(() => {
   return [{ label: "Logout", icon: "i-lucide-log-out", onSelect: clear }];
 });
+const tabsItems = computed(() => {
+  return [
+    {
+      label: "Preview",
+      value: "preview",
+    },
+    {
+      label: "Code",
+      value: "code",
+    },
+  ];
+});
+const mode = useState("mode", () => "preview");
 </script>
 
 <template>
@@ -29,9 +42,17 @@ const userMenuItems = computed(() => {
         <Chat />
       </template>
     </UDashboardSidebar>
-    <UDashboardPanel>
+    <UDashboardPanel :ui="{ body: 'p-0!' }">
       <template #header>
-        <UDashboardNavbar title="Preview">
+        <UDashboardNavbar>
+          <template #title>
+            <UTabs
+              v-model="mode"
+              :items="tabsItems"
+              size="xs"
+              :content="false"
+            />
+          </template>
           <template #right>
             <UDropdownMenu v-if="user" :items="userMenuItems">
               <UButton
