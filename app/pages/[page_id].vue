@@ -1,9 +1,10 @@
 <script setup lang="ts">
-const { page_id } = useRoute().params;
+const route = useRoute();
+const pageId = computed(() => route.params.page_id as string);
 
 useHead({
-  title: page_id as string,
+  title: () => pageId.value,
 });
 </script>
 
-<template>welcome to page {{ page_id }}</template>
+<template>welcome to page {{ pageId }}</template>

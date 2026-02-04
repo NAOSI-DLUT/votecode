@@ -1,50 +1,76 @@
 <script setup lang="ts">
-import type { ChatMessageProps } from "@nuxt/ui";
+import { page } from "#build/ui";
+import type { InternalApi } from "nitropack/types";
 const { user, clear } = useUserSession();
 const route = useRoute();
 const toast = useToast();
 
-const { page_id } = route.params;
-let reader: ReadableStreamDefaultReader<Uint8Array<ArrayBufferLike>>;
-
+const pageId = computed(() => route.params.page_id as string | undefined);
 const userMenuItems = computed(() => {
   return [{ label: "Logout", icon: "lucide-log-out", onSelect: clear }];
 });
 
-onMounted(() => {
-  watchEffect(async () => {
-    if (reader) {
-      reader.cancel();
-      console.log("stream cancelled");
+const { data: prompts } = useAsyncData(
+  async () => {
+    if (pageId.value) {
+      return await $fetch(`/api/pages/${pageId.value}/prompts`);
+    } else {
+      return [];
     }
-    if (route.path !== "/") {
-      const stream = await $fetch<ReadableStream<Uint8Array>>(
-        `/api/pages/${page_id}/sse`,
-      );
-      console.log(`connected to ${page_id}`);
-
-      reader = stream.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          console.log(new TextDecoder().decode(value));
-        }
+  },
+  { watch: [pageId] },
+);
+const newPrompt = ref("");
+const messages = computed(() => {
+  if (!prompts.value) return [];
+  return prompts.value
+    .map((prompt) => {
+      const res: any = [
+        {
+          id: prompt.prompts.id.toString(),
+          role: "user",
+          parts: [{ type: "text", text: prompt.prompts.content }],
+          avatar: { src: prompt.users?.avatar_url },
+        },
+      ];
+      if (prompt.prompts.response) {
+        res.push({
+          id: `${prompt.prompts.id.toString()}-response`,
+          role: "assistant",
+          parts: [{ type: "text", text: prompt.prompts.response }],
+        });
       }
-    }
-  });
+      return res;
+    })
+    .flat();
 });
 
-const messages = ref<ChatMessageProps[]>([]);
-const prompt = ref("");
+async function updatePrompts() {
+  if (pageId.value) {
+    prompts.value = await $fetch<any>(`/api/pages/${pageId.value}/prompts`);
+  } else {
+    prompts.value = [];
+  }
+}
+
+const interval = ref<NodeJS.Timeout>();
+
+onMounted(() => {
+  interval.value = setInterval(updatePrompts, 5000);
+});
+
+onUnmounted(() => {
+  clearInterval(interval.value);
+});
 
 function submitPrompt() {
-  if (prompt.value.trim() === "") return;
-  $fetch(`/api/pages/${page_id}/prompts`, {
+  if (newPrompt.value.trim() === "") return;
+  $fetch(`/api/pages/${pageId.value}/prompts`, {
     method: "POST",
-    body: { content: prompt.value },
+    body: { content: newPrompt.value },
   })
     .then(() => {
+      updatePrompts();
       toast.add({
         title: "Prompt submitted",
         color: "success",
@@ -86,12 +112,23 @@ function submitPrompt() {
           title="👋 Hi there"
           description="Select a page to start votecoding!"
         />
-        <UChatMessages :messages="messages" />
+        <UEmpty
+          v-else-if="messages.length === 0"
+          variant="naked"
+          icon="lucide-message-square-code"
+          title="No prompts yet"
+          description="Be the first to submit a prompt!"
+        />
+        <UChatMessages
+          :messages="messages"
+          :user="{ side: 'left' }"
+          :assistant="{ avatar: { icon: 'lucide-bot' } }"
+        />
         <UChatPrompt
           variant="soft"
           :disabled="route.path === '/' || !user"
           :placeholder="user ? '' : 'Please sign in to continue…'"
-          v-model="prompt"
+          v-model="newPrompt"
           @submit="submitPrompt"
         >
           <UChatPromptSubmit :disabled="route.path === '/' || !user" />
