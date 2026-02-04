@@ -1,5 +1,5 @@
 {
-  "id": "aecaf13d-f0c1-4aa3-8723-ce723ef4e542",
+  "id": "8df6a902-33d0-4a17-b4b2-2be9423ffff7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -73,8 +73,8 @@
         }
       },
       "indexes": {
-        "null_response_unique_idx": {
-          "name": "null_response_unique_idx",
+        "pending_unique_idx": {
+          "name": "pending_unique_idx",
           "columns": [
             {
               "expression": "page_id",
@@ -91,6 +91,21 @@
           ],
           "isUnique": true,
           "where": "\"prompts\".\"response\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "page_id_idx": {
+          "name": "page_id_idx",
+          "columns": [
+            {
+              "expression": "page_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -171,15 +186,9 @@
       "name": "votes",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
         "prompt_id": {
           "name": "prompt_id",
-          "type": "serial",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -250,7 +259,15 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "votes_prompt_id_user_id_pk": {
+          "name": "votes_prompt_id_user_id_pk",
+          "columns": [
+            "prompt_id",
+            "user_id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

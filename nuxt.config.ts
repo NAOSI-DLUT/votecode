@@ -9,4 +9,7 @@ export default defineNuxtConfig({
   ui: {
     fonts: false,
   },
+  appConfig: {
+    voteIntervalMinutes: 5,
+  },
 });

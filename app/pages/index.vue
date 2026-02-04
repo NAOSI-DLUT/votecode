@@ -45,7 +45,7 @@ function createPage() {
           :to="`/${page.id}`"
         >
           <template #footer>
-            <UBadge icon="lucide-flame" variant="subtle"
+            <UBadge icon="i-lucide-flame" variant="subtle"
               >{{ page.voteCount }} votes</UBadge
             >
           </template>
@@ -53,7 +53,7 @@ function createPage() {
       </UPageList>
       <UEmpty
         variant="naked"
-        icon="lucide-plus"
+        icon="i-lucide-plus"
         :title="pages?.length ? 'Or create another page…' : 'No pages yet'"
         :description="pages?.length ? '' : 'Create a page to get started'"
       >

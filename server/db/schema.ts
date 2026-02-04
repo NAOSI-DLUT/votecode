@@ -7,6 +7,7 @@ import {
   timestamp,
   uniqueIndex,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -36,17 +37,17 @@ export const prompts = pgTable(
     created_at: timestamp().defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("null_response_unique_idx")
+    uniqueIndex("pending_unique_idx")
       .on(table.page_id, table.user_id)
       .where(isNull(table.response)),
+    index("page_id_idx").on(table.page_id),
   ],
 );
 
 export const votes = pgTable(
   "votes",
   {
-    id: serial().primaryKey(),
-    prompt_id: serial()
+    prompt_id: integer()
       .references(() => prompts.id)
       .notNull(),
     user_id: integer()
@@ -54,6 +55,7 @@ export const votes = pgTable(
       .notNull(),
   },
   (table) => [
+    primaryKey({ columns: [table.prompt_id, table.user_id] }),
     index("prompt_idx").on(table.prompt_id),
     index("user_idx").on(table.user_id),
   ],

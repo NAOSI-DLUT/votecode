@@ -20,15 +20,16 @@ CREATE TABLE "users" (
 );
 --> statement-breakpoint
 CREATE TABLE "votes" (
-	"id" serial PRIMARY KEY NOT NULL,
-	"prompt_id" serial NOT NULL,
-	"user_id" integer NOT NULL
+	"prompt_id" integer NOT NULL,
+	"user_id" integer NOT NULL,
+	CONSTRAINT "votes_prompt_id_user_id_pk" PRIMARY KEY("prompt_id","user_id")
 );
 --> statement-breakpoint
 ALTER TABLE "prompts" ADD CONSTRAINT "prompts_page_id_pages_id_fk" FOREIGN KEY ("page_id") REFERENCES "public"."pages"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "prompts" ADD CONSTRAINT "prompts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "votes" ADD CONSTRAINT "votes_prompt_id_prompts_id_fk" FOREIGN KEY ("prompt_id") REFERENCES "public"."prompts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "votes" ADD CONSTRAINT "votes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "null_response_unique_idx" ON "prompts" USING btree ("page_id","user_id") WHERE "prompts"."response" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "pending_unique_idx" ON "prompts" USING btree ("page_id","user_id") WHERE "prompts"."response" is null;--> statement-breakpoint
+CREATE INDEX "page_id_idx" ON "prompts" USING btree ("page_id");--> statement-breakpoint
 CREATE INDEX "prompt_idx" ON "votes" USING btree ("prompt_id");--> statement-breakpoint
 CREATE INDEX "user_idx" ON "votes" USING btree ("user_id");
