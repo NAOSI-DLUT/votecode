@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     fonts: false,
   },
   appConfig: {
+    // The interval (in minutes) for each vote, must be the factor of 60 (an hour)
     voteIntervalMinutes: 5,
   },
 });

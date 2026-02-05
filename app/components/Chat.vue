@@ -6,6 +6,8 @@ const route = useRoute();
 const toast = useToast();
 
 const pageId = computed(() => route.params.page_id as string | undefined);
+const { voteIntervalMinutes } = useAppConfig();
+const timer = ref(0);
 
 const { data: prompts } = useAsyncData(
   async () => {
@@ -129,14 +131,20 @@ function copy(text: string) {
   });
 }
 
-const interval = ref<NodeJS.Timeout>();
+const updateInterval = ref<NodeJS.Timeout>();
+const timerInterval = ref<NodeJS.Timeout>();
 
 onMounted(() => {
-  interval.value = setInterval(updatePrompts, 5000);
+  updateInterval.value = setInterval(updatePrompts, 5000);
+  timerInterval.value = setInterval(() => {
+    timer.value =
+      voteIntervalMinutes * 60 -
+      (Math.floor(Date.now() / 1000) % (voteIntervalMinutes * 60));
+  }, 1000);
 });
-
 onUnmounted(() => {
-  clearInterval(interval.value);
+  clearInterval(updateInterval.value);
+  clearInterval(timerInterval.value);
 });
 
 function submitPrompt() {
@@ -189,7 +197,7 @@ function submitPrompt() {
         color="neutral"
         variant="link"
         loading
-        label="Waiting for vote result…"
+        :label="`Waiting for vote result… (${(timer / 60).toFixed(0).padStart(2, '0')}:${(timer % 60).toFixed(0).padStart(2, '0')})`"
       />
     </template>
   </UChatMessages>
