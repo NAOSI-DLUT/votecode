@@ -6,7 +6,7 @@ export default defineOAuthGitHubEventHandler({
       .insert(schema.users)
       .values({
         id: user.id,
-        name: user.name,
+        name: user.name || user.login,
         avatar_url: user.avatar_url,
         html_url: user.html_url,
       })
