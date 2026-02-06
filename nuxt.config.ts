@@ -15,9 +15,9 @@ export default defineNuxtConfig({
     fonts: false,
   },
   routeRules: {
-    "/": { prerender: true, swr: 300 },
+    "/": { swr: 300 },
   },
   appConfig: {
-    voteIntervalMinutes: 1,
+    voteIntervalMinutes: 5,
   },
 });
