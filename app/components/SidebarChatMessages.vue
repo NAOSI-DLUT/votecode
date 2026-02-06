@@ -9,13 +9,6 @@ const { prompts, refresh } = usePrompts();
 
 const pageId = computed(() => route.params.page_id as string | undefined);
 
-const hasPendingPrompt = computed(() => {
-  if (!prompts.value || !user.value) return false;
-  return prompts.value.some(
-    (prompt) => prompt.user_id === user.value?.id && !prompt.response,
-  );
-});
-
 const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
   if (!prompts.value) return [];
   return prompts.value
@@ -118,13 +111,12 @@ function copy(text: string) {
     title="No prompts yet"
     description="Be the first to submit a prompt!"
   />
-
   <UChatMessages
     v-else
     :messages="messages"
     :user="{ side: 'left' }"
     :assistant="{ avatar: { icon: 'i-lucide-bot' } }"
-    :status="hasPendingPrompt ? 'submitted' : 'ready'"
+    status="submitted"
   >
     <template #indicator>
       <UButton
