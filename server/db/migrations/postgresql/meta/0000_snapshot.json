@@ -1,5 +1,5 @@
 {
-  "id": "8df6a902-33d0-4a17-b4b2-2be9423ffff7",
+  "id": "9c3ef2bd-e541-43c8-939f-e13d23d56331",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -19,7 +19,7 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "''"
+          "default": "'<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body>Hello World!</body></html>'"
         }
       },
       "indexes": {},
@@ -52,6 +52,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "pending": {
+          "name": "pending",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
         "content": {
           "name": "content",
           "type": "text",
@@ -73,6 +80,21 @@
         }
       },
       "indexes": {
+        "page_id_idx": {
+          "name": "page_id_idx",
+          "columns": [
+            {
+              "expression": "page_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "pending_unique_idx": {
           "name": "pending_unique_idx",
           "columns": [
@@ -90,22 +112,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"prompts\".\"response\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "page_id_idx": {
-          "name": "page_id_idx",
-          "columns": [
-            {
-              "expression": "page_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
+          "where": "\"prompts\".\"pending\" = true",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -199,38 +206,7 @@
           "notNull": true
         }
       },
-      "indexes": {
-        "prompt_idx": {
-          "name": "prompt_idx",
-          "columns": [
-            {
-              "expression": "prompt_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "user_idx": {
-          "name": "user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "votes_prompt_id_prompts_id_fk": {
           "name": "votes_prompt_id_prompts_id_fk",

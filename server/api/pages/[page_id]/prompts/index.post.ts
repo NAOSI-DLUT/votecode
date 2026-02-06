@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { isNull } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
   const { page_id } = getRouterParams(event);
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
     })
     .onConflictDoUpdate({
       target: [schema.prompts.page_id, schema.prompts.user_id],
-      targetWhere: isNull(schema.prompts.response),
+      targetWhere: eq(schema.prompts.pending, true),
       set: { content: body.content, created_at: new Date() },
     });
 });

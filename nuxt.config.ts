@@ -18,7 +18,6 @@ export default defineNuxtConfig({
     "/": { prerender: true, swr: 300 },
   },
   appConfig: {
-    // The interval (in minutes) for each vote, must be the factor of 60 (an hour)
-    voteIntervalMinutes: 5,
+    voteIntervalMinutes: 1,
   },
 });

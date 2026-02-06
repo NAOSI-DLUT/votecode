@@ -1,12 +1,13 @@
 CREATE TABLE "pages" (
 	"id" text PRIMARY KEY NOT NULL,
-	"html" text DEFAULT '' NOT NULL
+	"html" text DEFAULT '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>Hello World!</body></html>' NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "prompts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"page_id" text NOT NULL,
 	"user_id" integer NOT NULL,
+	"pending" boolean DEFAULT true NOT NULL,
 	"content" text NOT NULL,
 	"response" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
@@ -29,7 +30,5 @@ ALTER TABLE "prompts" ADD CONSTRAINT "prompts_page_id_pages_id_fk" FOREIGN KEY (
 ALTER TABLE "prompts" ADD CONSTRAINT "prompts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "votes" ADD CONSTRAINT "votes_prompt_id_prompts_id_fk" FOREIGN KEY ("prompt_id") REFERENCES "public"."prompts"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "votes" ADD CONSTRAINT "votes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "pending_unique_idx" ON "prompts" USING btree ("page_id","user_id") WHERE "prompts"."response" is null;--> statement-breakpoint
 CREATE INDEX "page_id_idx" ON "prompts" USING btree ("page_id");--> statement-breakpoint
-CREATE INDEX "prompt_idx" ON "votes" USING btree ("prompt_id");--> statement-breakpoint
-CREATE INDEX "user_idx" ON "votes" USING btree ("user_id");
+CREATE UNIQUE INDEX "pending_unique_idx" ON "prompts" USING btree ("page_id","user_id") WHERE "prompts"."pending" = true;

@@ -4,37 +4,18 @@ import type { ChatMessageProps } from "@nuxt/ui";
 const { user } = useUserSession();
 const route = useRoute();
 const toast = useToast();
+const timer = useTimer();
+const { prompts, refresh } = usePrompts();
 
 const pageId = computed(() => route.params.page_id as string | undefined);
-const { voteIntervalMinutes } = useAppConfig();
-const timer = ref(0);
-
-const { data: prompts } = useAsyncData(
-  async () => {
-    if (pageId.value) {
-      const newPrompts = await $fetch(`/api/pages/${pageId.value}/prompts`);
-      // recover pending prompt content
-      const pendingPrompt = newPrompts.find(
-        (p) => p.user_id === user.value?.id && !p.response,
-      );
-      if (pendingPrompt) {
-        newPrompt.value = pendingPrompt.content;
-      }
-      return newPrompts;
-    } else {
-      newPrompt.value = "";
-      return [];
-    }
-  },
-  { watch: [pageId] },
-);
 
 const hasPendingPrompt = computed(() => {
   if (!prompts.value || !user.value) return false;
-  return prompts.value.some((p) => p.user_id === user.value?.id && !p.response);
+  return prompts.value.some(
+    (prompt) => prompt.user_id === user.value?.id && !prompt.response,
+  );
 });
 
-const newPrompt = ref("");
 const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
   if (!prompts.value) return [];
   return prompts.value
@@ -92,16 +73,6 @@ const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
     .flat();
 });
 
-function updatePrompts() {
-  if (pageId.value) {
-    $fetch<any>(`/api/pages/${pageId.value}/prompts`).then((newPrompts) => {
-      prompts.value = newPrompts;
-    });
-  } else {
-    prompts.value = [];
-  }
-}
-
 function vote(promptId: number, vote: boolean = true) {
   if (!pageId.value) return;
   $fetch(`/api/pages/${pageId.value}/votes/${promptId}`, {
@@ -109,7 +80,7 @@ function vote(promptId: number, vote: boolean = true) {
     body: { vote },
   })
     .then(() => {
-      updatePrompts();
+      refresh(pageId.value);
       toast.add({
         title: vote ? "Voted to prompt" : "Removed vote from prompt",
         color: "success",
@@ -130,43 +101,6 @@ function copy(text: string) {
     color: "success",
   });
 }
-
-const updateInterval = ref<NodeJS.Timeout>();
-const timerInterval = ref<NodeJS.Timeout>();
-
-onMounted(() => {
-  updateInterval.value = setInterval(updatePrompts, 5000);
-  timerInterval.value = setInterval(() => {
-    timer.value =
-      voteIntervalMinutes * 60 -
-      (Math.floor(Date.now() / 1000) % (voteIntervalMinutes * 60));
-  }, 1000);
-});
-onUnmounted(() => {
-  clearInterval(updateInterval.value);
-  clearInterval(timerInterval.value);
-});
-
-function submitPrompt() {
-  if (newPrompt.value.trim() === "") return;
-  $fetch(`/api/pages/${pageId.value}/prompts`, {
-    method: "POST",
-    body: { content: newPrompt.value },
-  })
-    .then(() => {
-      updatePrompts();
-      toast.add({
-        title: "Prompt submitted",
-        color: "success",
-      });
-    })
-    .catch((err) => {
-      toast.add({
-        title: "Failed to submit prompt",
-        color: err.data?.message || err.message,
-      });
-    });
-}
 </script>
 
 <template>
@@ -186,6 +120,7 @@ function submitPrompt() {
   />
 
   <UChatMessages
+    v-else
     :messages="messages"
     :user="{ side: 'left' }"
     :assistant="{ avatar: { icon: 'i-lucide-bot' } }"
@@ -197,18 +132,8 @@ function submitPrompt() {
         color="neutral"
         variant="link"
         loading
-        :label="`Waiting for vote result… (${(timer / 60).toFixed(0).padStart(2, '0')}:${(timer % 60).toFixed(0).padStart(2, '0')})`"
+        :label="`Waiting for vote result… (${String(Math.floor(timer / 60)).padStart(2, '0')}:${String(timer % 60).padStart(2, '0')})`"
       />
     </template>
   </UChatMessages>
-
-  <UChatPrompt
-    variant="soft"
-    :disabled="route.path === '/' || !user"
-    :placeholder="user ? '' : 'Please sign in to continue…'"
-    v-model="newPrompt"
-    @submit="submitPrompt"
-  >
-    <UChatPromptSubmit :disabled="route.path === '/' || !user" />
-  </UChatPrompt>
 </template>

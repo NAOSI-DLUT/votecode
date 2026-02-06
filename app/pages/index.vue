@@ -2,21 +2,21 @@
 const toast = useToast();
 const { data: pages } = useFetch("/api/pages");
 
-const createPageId = ref("");
+const newPageId = ref("");
 
 function createPage() {
-  if (!createPageId.value) return;
-  $fetch(`/api/pages/${createPageId.value}`, {
+  if (!newPageId.value) return;
+  $fetch(`/api/pages/${newPageId.value}`, {
     method: "POST",
   })
     .then((res) => {
       if (!res.length) {
         toast.add({
           title: "Oops!",
-          description: `Page ${createPageId.value} already exists`,
+          description: `Page ${newPageId.value} already exists`,
         });
       }
-      navigateTo(`/` + createPageId.value);
+      navigateTo(`/` + newPageId.value);
     })
     .catch((err) => {
       toast.add({
@@ -58,7 +58,7 @@ function createPage() {
         :description="pages?.length ? '' : 'Create a page to get started'"
       >
         <template #actions>
-          <UInput v-model="createPageId" />
+          <UInput v-model="newPageId" />
           <UButton @click="createPage">Create page</UButton>
         </template>
       </UEmpty>

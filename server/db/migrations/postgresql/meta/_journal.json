@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1770227823923,
-      "tag": "0000_great_william_stryker",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1770231135149,
-      "tag": "0001_volatile_stardust",
+      "when": 1770365095487,
+      "tag": "0000_left_psynapse",
       "breakpoints": true
     }
   ]

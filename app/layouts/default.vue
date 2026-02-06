@@ -1,21 +1,5 @@
 <script setup lang="ts">
 const { user, clear } = useUserSession();
-
-const userMenuItems = computed(() => {
-  return [{ label: "Logout", icon: "i-lucide-log-out", onSelect: clear }];
-});
-const tabsItems = computed(() => {
-  return [
-    {
-      label: "Preview",
-      value: "preview",
-    },
-    {
-      label: "Code",
-      value: "code",
-    },
-  ];
-});
 const mode = useState("mode", () => "preview");
 </script>
 
@@ -26,7 +10,6 @@ const mode = useState("mode", () => "preview");
       :min-size="20"
       :default-size="30"
       :max-size="50"
-      :ui="{ footer: 'border-t border-default' }"
     >
       <template #header>
         <UButton
@@ -39,7 +22,10 @@ const mode = useState("mode", () => "preview");
         </UButton>
       </template>
       <template #default>
-        <Chat />
+        <SidebarChatMessages />
+      </template>
+      <template #footer>
+        <SidebarChatPrompt />
       </template>
     </UDashboardSidebar>
     <UDashboardPanel :ui="{ body: 'p-0!' }">
@@ -48,13 +34,22 @@ const mode = useState("mode", () => "preview");
           <template #title>
             <UTabs
               v-model="mode"
-              :items="tabsItems"
+              :items="[
+                { label: 'Preview', value: 'preview' },
+                { label: 'Code', value: 'code' },
+              ]"
               size="xs"
               :content="false"
             />
           </template>
           <template #right>
-            <UDropdownMenu v-if="user" :items="userMenuItems">
+            <UColorModeButton />
+            <UDropdownMenu
+              v-if="user"
+              :items="[
+                { label: 'Logout', icon: 'i-lucide-log-out', onSelect: clear },
+              ]"
+            >
               <UButton
                 color="neutral"
                 variant="ghost"

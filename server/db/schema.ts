@@ -1,4 +1,4 @@
-import { isNull } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -8,6 +8,7 @@ import {
   uniqueIndex,
   index,
   primaryKey,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -36,15 +37,16 @@ export const prompts = pgTable(
     user_id: integer()
       .references(() => users.id)
       .notNull(),
+    pending: boolean().notNull().default(true),
     content: text().notNull(),
     response: text(),
-    created_at: timestamp().defaultNow().notNull(),
+    created_at: timestamp().notNull().defaultNow(),
   },
   (table) => [
+    index("page_id_idx").on(table.page_id),
     uniqueIndex("pending_unique_idx")
       .on(table.page_id, table.user_id)
-      .where(isNull(table.response)),
-    index("page_id_idx").on(table.page_id),
+      .where(sql`${table.pending} = true`),
   ],
 );
 
@@ -58,9 +60,5 @@ export const votes = pgTable(
       .references(() => users.id)
       .notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.prompt_id, table.user_id] }),
-    index("prompt_idx").on(table.prompt_id),
-    index("user_idx").on(table.user_id),
-  ],
+  (table) => [primaryKey({ columns: [table.prompt_id, table.user_id] })],
 );
