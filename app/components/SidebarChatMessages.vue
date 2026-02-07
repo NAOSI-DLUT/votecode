@@ -21,6 +21,11 @@ const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
             src: prompt.user?.avatar_url,
             chip: {
               size: "3xl",
+              color: prompt.pending
+                ? "warning"
+                : prompt.response
+                  ? "primary"
+                  : "neutral",
               text: prompt.voteCount,
               position: "bottom-right",
             },
@@ -43,6 +48,9 @@ const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
               },
             },
           ],
+          ui: {
+            actions: "opacity-100",
+          },
         },
       ];
       if (prompt.response) {
@@ -59,6 +67,9 @@ const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
               },
             },
           ],
+          ui: {
+            actions: "opacity-100",
+          },
         });
       }
       return res;
