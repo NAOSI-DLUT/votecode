@@ -85,10 +85,6 @@ function vote(promptId: number, vote: boolean = true) {
   })
     .then(() => {
       refresh(pageId.value);
-      toast.add({
-        title: vote ? "Voted to prompt" : "Removed vote from prompt",
-        color: "success",
-      });
     })
     .catch((err) => {
       toast.add({
@@ -100,10 +96,6 @@ function vote(promptId: number, vote: boolean = true) {
 
 function copy(text: string) {
   navigator.clipboard.writeText(text);
-  toast.add({
-    title: "Prompt copied to clipboard",
-    color: "success",
-  });
 }
 </script>
 

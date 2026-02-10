@@ -16,10 +16,7 @@ function submitPrompt() {
   })
     .then(() => {
       refresh(pageId.value);
-      toast.add({
-        title: "Prompt submitted",
-        color: "success",
-      });
+      newPrompt.value = "";
     })
     .catch((err) => {
       toast.add({
