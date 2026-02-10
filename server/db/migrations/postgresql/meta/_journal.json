@@ -8,6 +8,13 @@
       "when": 1770365095487,
       "tag": "0000_left_psynapse",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770735492328,
+      "tag": "0001_even_red_hulk",
+      "breakpoints": true
     }
   ]
 }

@@ -9,32 +9,18 @@ import {
   lte,
   sql,
 } from "drizzle-orm";
+import { CronJob } from "cron";
 import { Message, streamText, toAsyncIterator, tool } from "xsai";
 import { z } from "zod";
 
-export default defineEventHandler(async (event) => {
-  const { page_id } = getRouterParams(event);
-  if (!page_id) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "page_id is required",
-    });
-  }
-
-  const { voteIntervalMinutes } = useAppConfig();
-  const lastVoteTime = new Date(
-    Math.floor(Date.now() / 1000 / (voteIntervalMinutes * 60)) *
-      (voteIntervalMinutes * 60) *
-      1000,
-  );
-
+async function generate(pageId: string) {
   const readHtml = await tool({
     name: "readHtml",
     description: "Read the full HTML code",
     parameters: z.object({}),
     execute: async () => {
       return await db.query.pages.findFirst({
-        where: eq(schema.pages.id, page_id),
+        where: eq(schema.pages.id, pageId),
       });
     },
   });
@@ -49,13 +35,13 @@ export default defineEventHandler(async (event) => {
       return await db
         .update(schema.pages)
         .set({ html })
-        .where(eq(schema.pages.id, page_id));
+        .where(eq(schema.pages.id, pageId));
     },
   });
 
   return db.transaction(async (tx) => {
     const lockResult = await tx.execute(
-      sql`SELECT pg_try_advisory_xact_lock(hashtext(${page_id})) as lock`,
+      sql`SELECT pg_try_advisory_xact_lock(hashtext(${pageId})) as lock`,
     );
     const lock = lockResult[0]?.lock as boolean;
 
@@ -74,19 +60,15 @@ export default defineEventHandler(async (event) => {
       .from(schema.prompts)
       .where(
         and(
-          eq(schema.prompts.page_id, page_id),
+          eq(schema.prompts.page_id, pageId),
           eq(schema.prompts.pending, true),
-          lte(schema.prompts.created_at, lastVoteTime),
         ),
       )
       .leftJoin(schema.votes, eq(schema.prompts.id, schema.votes.prompt_id))
       .groupBy(schema.prompts.id);
 
     if (!pendingPrompts[0]) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: "No pending prompts found",
-      });
+      return;
     }
 
     const bestPrompt = pendingPrompts.reduce((max, prompt) => {
@@ -102,7 +84,7 @@ export default defineEventHandler(async (event) => {
       .from(schema.prompts)
       .where(
         and(
-          eq(schema.prompts.page_id, page_id),
+          eq(schema.prompts.page_id, pageId),
           isNotNull(schema.prompts.response),
         ),
       )
@@ -158,9 +140,8 @@ export default defineEventHandler(async (event) => {
       .set({ pending: false })
       .where(
         and(
-          eq(schema.prompts.page_id, page_id),
+          eq(schema.prompts.page_id, pageId),
           eq(schema.prompts.pending, true),
-          lte(schema.prompts.created_at, lastVoteTime),
         ),
       );
 
@@ -168,7 +149,22 @@ export default defineEventHandler(async (event) => {
       .update(schema.prompts)
       .set({ response: text })
       .where(eq(schema.prompts.id, bestPrompt.id));
-
-    return { text };
   });
+}
+
+export default defineNitroPlugin((nitroApp) => {
+  const { voteIntervalMinutes } = useAppConfig();
+  const job = new CronJob("* * * * *", async () => {
+    const offset = Date.now() % (voteIntervalMinutes * 60 * 1000);
+    console.log("start", offset);
+
+    const pages = await db
+      .select({ id: schema.pages.id })
+      .from(schema.pages)
+      .where(eq(schema.pages.offset, offset));
+    pages.forEach((page) => {
+      generate(page.id);
+    });
+  });
+  job.start();
 });

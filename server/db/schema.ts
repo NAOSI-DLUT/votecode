@@ -20,6 +20,7 @@ export const users = pgTable("users", {
 
 export const pages = pgTable("pages", {
   id: text().primaryKey(),
+  offset: integer().notNull(),
   html: text()
     .notNull()
     .default(

@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event);
 
   const body = await readBody(event);
-  return await db
+  const prompts = await db
     .insert(schema.prompts)
     .values({
       page_id: page_id,
@@ -25,5 +25,12 @@ export default defineEventHandler(async (event) => {
       target: [schema.prompts.page_id, schema.prompts.user_id],
       targetWhere: eq(schema.prompts.pending, true),
       set: { content: body.content, created_at: new Date() },
-    });
+    })
+    .returning();
+
+  const prompt = prompts[0];
+  if (prompt) {
+    useStorage().setItem(`pages:${page_id}:prompts:${prompt.id}`, prompt);
+  }
+  return [];
 });
