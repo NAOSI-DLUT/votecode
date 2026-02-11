@@ -162,6 +162,8 @@ export default defineNitroPlugin((nitroApp) => {
       .select({ id: schema.pages.id })
       .from(schema.pages)
       .where(eq(schema.pages.offset, offset));
+    console.log(`offset: ${offset}, pages: ${pages.length}`);
+
     await Promise.allSettled(
       pages.map(async (page) => {
         await generate(page.id);
