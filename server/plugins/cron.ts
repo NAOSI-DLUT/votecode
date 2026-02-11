@@ -14,6 +14,7 @@ import { Message, streamText, toAsyncIterator, tool } from "xsai";
 import { z } from "zod";
 
 async function generate(pageId: string) {
+  const storage = useStorage();
   const readHtml = await tool({
     name: "readHtml",
     description: "Read the full HTML code",
@@ -28,10 +29,8 @@ async function generate(pageId: string) {
   const writeHtml = await tool({
     name: "writeHtml",
     description: "Write the full HTML code",
-    parameters: z.object({
-      html: z.string().describe("The full HTML code to write to the page"),
-    }),
-    execute: async ({ html }) => {
+    parameters: z.string().describe("The full HTML code to write to the page"),
+    execute: async (html) => {
       return await db
         .update(schema.pages)
         .set({ html })
@@ -39,7 +38,7 @@ async function generate(pageId: string) {
     },
   });
 
-  return db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const lockResult = await tx.execute(
       sql`SELECT pg_try_advisory_xact_lock(hashtext(${pageId})) as lock`,
     );
@@ -91,12 +90,12 @@ async function generate(pageId: string) {
       .orderBy(desc(schema.prompts.created_at))
       .limit(5);
 
-    const { textStream } = streamText({
+    const { textStream, fullStream } = streamText({
       apiKey: process.env.OPENAI_API_KEY!,
       baseURL: process.env.OPENAI_BASE_URL!,
       model: process.env.OPENAI_MODEL!,
       tools: [readHtml, writeHtml],
-      maxSteps: 3,
+      maxSteps: 5,
       messages: [
         {
           role: "system",
@@ -121,18 +120,18 @@ async function generate(pageId: string) {
         },
       ],
     });
-
-    const chunks: string[] = [];
-    for await (const chunk of toAsyncIterator(textStream)) {
-      chunks.push(chunk);
-    }
-
-    const text = chunks.join("");
-    if (!text) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: "Failed to generate text",
-      });
+    const htmlChunks: string[] = [];
+    const textChunks: string[] = [];
+    for await (const chunk of toAsyncIterator(fullStream)) {
+      if (chunk.type === "tool-call-delta") {
+        htmlChunks.push(chunk.argsTextDelta);
+        storage.setItem(`pages:${pageId}:html`, htmlChunks.join(""));
+      } else if (chunk.type === "text-delta") {
+        textChunks.push(chunk.text);
+        storage.setItem(`pages:${pageId}:prompts:${bestPrompt.id}`, {
+          response: textChunks.join(""),
+        });
+      }
     }
 
     await tx
@@ -147,24 +146,24 @@ async function generate(pageId: string) {
 
     await tx
       .update(schema.prompts)
-      .set({ response: text })
+      .set({ response: textChunks.join("") })
       .where(eq(schema.prompts.id, bestPrompt.id));
   });
 }
 
 export default defineNitroPlugin((nitroApp) => {
   const { voteIntervalMinutes } = useAppConfig();
-  const job = new CronJob("* * * * *", async () => {
-    const offset = Date.now() % (voteIntervalMinutes * 60 * 1000);
-    console.log("start", offset);
+  const job = new CronJob("*/10 * * * * *", async () => {
+    const offset = Math.floor((Date.now() / 1000 / 60) % voteIntervalMinutes);
+    const pages = await db.select({ id: schema.pages.id }).from(schema.pages);
+    // .where(eq(schema.pages.offset, offset));
+    console.log(`offset: ${offset}, pages: ${pages.length}`);
 
-    const pages = await db
-      .select({ id: schema.pages.id })
-      .from(schema.pages)
-      .where(eq(schema.pages.offset, offset));
-    pages.forEach((page) => {
-      generate(page.id);
-    });
+    await Promise.allSettled(
+      pages.map(async (page) => {
+        await generate(page.id);
+      }),
+    );
   });
   job.start();
 });

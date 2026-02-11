@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
   const { page_id } = getRouterParams(event);
@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const { user } = await requireUserSession(event);
+  const storage = useStorage();
 
   const body = await readBody(event);
   const prompts = await db
@@ -30,7 +31,9 @@ export default defineEventHandler(async (event) => {
 
   const prompt = prompts[0];
   if (prompt) {
-    useStorage().setItem(`pages:${page_id}:prompts:${prompt.id}`, prompt);
+    storage.setItem(`pages:${page_id}:prompts:${prompt.id}`, {
+      content: prompt.content,
+    });
   }
   return [];
 });
