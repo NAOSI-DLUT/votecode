@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const route = useRoute();
 const pageId = computed(() => route.params.page_id as string);
-const { prompts } = usePrompts();
+const { prompts, refresh } = usePrompts();
 
 useHead({
   title: () => pageId.value,
@@ -11,7 +11,9 @@ const mode = useState("mode", () => "preview");
 useFetch(`/api/pages/${pageId.value}/prompts`).then((res) => {
   prompts.value = res.data.value || [];
 });
-const { data: page, error } = useFetch(`/api/pages/${pageId.value}`);
+const { data: page, error } = useFetch(`/api/pages/${pageId.value}`, {
+  deep: true,
+});
 if (error.value) {
   throw createError({
     statusCode: 404,
@@ -35,11 +37,11 @@ onMounted(() => {
       const promptId = Number(data.key.split(":").slice(-1)[0]);
       const prompt = data.value;
       const index = prompts.value.findIndex((p) => p.id === promptId);
-      if (index === -1) {
-        prompts.value.push(prompt);
-      } else {
+      if (index !== -1) {
         prompts.value[index] = Object.assign(prompts.value[index]!, prompt);
       }
+    } else if (data.key.startsWith(`pages:${pageId.value}:refresh`)) {
+      refresh(pageId.value);
     }
   };
   timerInterval.value = setInterval(() => {

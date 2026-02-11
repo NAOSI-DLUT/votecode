@@ -123,7 +123,7 @@ function copy(text: string) {
   >
     <template #content="{ message }">
       <template
-        v-for="(part, index) in message.parts"
+        v-for="(part, index) in message.parts ?? []"
         :key="`${message.id}-${part.type}-${index}`"
       >
         <MDC
@@ -138,8 +138,8 @@ function copy(text: string) {
         >
           {{ part.text }}
         </p>
-      </template></template
-    >
+      </template>
+    </template>
     <template #indicator>
       <UButton
         class="px-0"

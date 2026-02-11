@@ -6,39 +6,16 @@ import {
   eq,
   getTableColumns,
   isNotNull,
-  lte,
   sql,
 } from "drizzle-orm";
 import { CronJob } from "cron";
-import { Message, streamText, toAsyncIterator, tool } from "xsai";
+import { Message, streamObject, toAsyncIterator } from "xsai";
 import { z } from "zod";
 
 async function generate(pageId: string) {
   const storage = useStorage();
-  const readHtml = await tool({
-    name: "readHtml",
-    description: "Read the full HTML code",
-    parameters: z.object({}),
-    execute: async () => {
-      return await db.query.pages.findFirst({
-        where: eq(schema.pages.id, pageId),
-      });
-    },
-  });
 
-  const writeHtml = await tool({
-    name: "writeHtml",
-    description: "Write the full HTML code",
-    parameters: z.string().describe("The full HTML code to write to the page"),
-    execute: async (html) => {
-      return await db
-        .update(schema.pages)
-        .set({ html })
-        .where(eq(schema.pages.id, pageId));
-    },
-  });
-
-  return await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const lockResult = await tx.execute(
       sql`SELECT pg_try_advisory_xact_lock(hashtext(${pageId})) as lock`,
     );
@@ -48,6 +25,17 @@ async function generate(pageId: string) {
       throw createError({
         statusCode: 409,
         statusMessage: "Another generate is already running for this page",
+      });
+    }
+
+    const page = await tx.query.pages.findFirst({
+      where: eq(schema.pages.id, pageId),
+    });
+
+    if (!page) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: "Page not found",
       });
     }
 
@@ -90,16 +78,14 @@ async function generate(pageId: string) {
       .orderBy(desc(schema.prompts.created_at))
       .limit(5);
 
-    const { textStream, fullStream } = streamText({
+    const { partialObjectStream } = await streamObject({
       apiKey: process.env.OPENAI_API_KEY!,
       baseURL: process.env.OPENAI_BASE_URL!,
       model: process.env.OPENAI_MODEL!,
-      tools: [readHtml, writeHtml],
-      maxSteps: 5,
       messages: [
         {
           role: "system",
-          content: `You are a web programming assistant. Based on the user's requirements, use the "readHtml" tool to read the HTML content, make the necessary modifications, and then use the "writeHtml" tool to write the updated complete HTML back. Finally, reply to the user with the modifications you have made.`,
+          content: `You are a web programming assistant. Based on the user's requirements, make the necessary modifications, and then output the complete updated HTML content of the page along with your response.`,
         },
         ...(historyPrompts
           .reverse()
@@ -114,24 +100,34 @@ async function generate(pageId: string) {
             },
           ])
           .flat() as Message[]),
+
         {
           role: "user",
-          content: bestPrompt.content,
+          content: JSON.stringify({
+            html: page.html,
+            content: bestPrompt.content,
+          }),
         },
       ],
+      schema: z.object({
+        response: z.string().describe("The assistant's reply to the user"),
+        html: z
+          .string()
+          .optional()
+          .describe("The complete updated HTML content of the page"),
+      }),
     });
-    const htmlChunks: string[] = [];
-    const textChunks: string[] = [];
-    for await (const chunk of toAsyncIterator(fullStream)) {
-      if (chunk.type === "tool-call-delta") {
-        htmlChunks.push(chunk.argsTextDelta);
-        storage.setItem(`pages:${pageId}:html`, htmlChunks.join(""));
-      } else if (chunk.type === "text-delta") {
-        textChunks.push(chunk.text);
-        storage.setItem(`pages:${pageId}:prompts:${bestPrompt.id}`, {
-          response: textChunks.join(""),
-        });
+
+    let finalChunk: any;
+
+    for await (const chunk of toAsyncIterator(partialObjectStream)) {
+      storage.setItem(`pages:${pageId}:prompts:${bestPrompt.id}`, {
+        response: chunk.response,
+      });
+      if (chunk.html) {
+        storage.setItem(`pages:${pageId}:html`, chunk.html);
       }
+      finalChunk = chunk;
     }
 
     await tx
@@ -146,19 +142,26 @@ async function generate(pageId: string) {
 
     await tx
       .update(schema.prompts)
-      .set({ response: textChunks.join("") })
+      .set({ response: finalChunk.response })
       .where(eq(schema.prompts.id, bestPrompt.id));
+
+    await tx
+      .update(schema.pages)
+      .set({ html: finalChunk.html })
+      .where(eq(schema.pages.id, pageId));
   });
+
+  await storage.setItem(`pages:${pageId}:refresh`, true);
 }
 
 export default defineNitroPlugin((nitroApp) => {
   const { voteIntervalMinutes } = useAppConfig();
-  const job = new CronJob("*/10 * * * * *", async () => {
+  const job = new CronJob("* * * * *", async () => {
     const offset = Math.floor((Date.now() / 1000 / 60) % voteIntervalMinutes);
-    const pages = await db.select({ id: schema.pages.id }).from(schema.pages);
-    // .where(eq(schema.pages.offset, offset));
-    console.log(`offset: ${offset}, pages: ${pages.length}`);
-
+    const pages = await db
+      .select({ id: schema.pages.id })
+      .from(schema.pages)
+      .where(eq(schema.pages.offset, offset));
     await Promise.allSettled(
       pages.map(async (page) => {
         await generate(page.id);

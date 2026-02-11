@@ -23,8 +23,6 @@ export default defineEventHandler(async (event) => {
 
   const eventStream = createEventStream(event);
   const unwatch = await storage.watch(async (event, key) => {
-    console.log("sse got", event, key, await storage.getItem(key));
-
     if (key?.startsWith(`pages:${page_id}:`)) {
       eventStream.push(
         JSON.stringify({ event, key, value: await storage.getItem(key) }),

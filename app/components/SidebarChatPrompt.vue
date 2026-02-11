@@ -2,7 +2,6 @@
 const { user } = useUserSession();
 const route = useRoute();
 const toast = useToast();
-const { refresh } = usePrompts();
 
 const pageId = computed(() => route.params.page_id as string | undefined);
 const newPrompt = ref("");
@@ -15,7 +14,6 @@ function submitPrompt() {
     body: { content: newPrompt.value },
   })
     .then(() => {
-      refresh(pageId.value);
       newPrompt.value = "";
     })
     .catch((err) => {

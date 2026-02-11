@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const storage = useStorage();
 
   const body = await readBody(event);
-  const prompts = await db
+  await db
     .insert(schema.prompts)
     .values({
       page_id: page_id,
@@ -28,12 +28,6 @@ export default defineEventHandler(async (event) => {
       set: { content: body.content, created_at: new Date() },
     })
     .returning();
-
-  const prompt = prompts[0];
-  if (prompt) {
-    storage.setItem(`pages:${page_id}:prompts:${prompt.id}`, {
-      content: prompt.content,
-    });
-  }
+  storage.setItem(`pages:${page_id}:refresh`, true);
   return [];
 });
