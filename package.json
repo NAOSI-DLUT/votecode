@@ -5,9 +5,7 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
-    "postinstall": "nuxt prepare",
-    "db:generate": "nuxt db generate",
-    "db:migrate": "nuxt db migrate"
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.15",
