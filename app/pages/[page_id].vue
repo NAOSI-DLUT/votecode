@@ -8,10 +8,8 @@ useHead({
 });
 
 const mode = useState("mode", () => "preview");
-useFetch(`/api/pages/${pageId.value}/prompts`).then((res) => {
-  prompts.value = res.data.value || [];
-});
-const { data: page, error } = useFetch(`/api/pages/${pageId.value}`, {
+
+const { data: page, error } = await useFetch(`/api/pages/${pageId.value}`, {
   deep: true,
 });
 if (error.value) {

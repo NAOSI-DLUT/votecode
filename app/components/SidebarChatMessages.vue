@@ -5,9 +5,15 @@ const { user } = useUserSession();
 const route = useRoute();
 const toast = useToast();
 const timer = useTimer();
-const { prompts, refresh } = usePrompts();
+const { prompts, load, refresh } = usePrompts();
 
 const pageId = computed(() => route.params.page_id as string | undefined);
+
+await load(pageId.value);
+
+watch(pageId, (value) => {
+  void load(value);
+});
 
 const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
   if (!prompts.value) return [];

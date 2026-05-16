@@ -5,13 +5,19 @@ export default function usePrompts() {
     "prompts",
     () => [],
   );
-  async function refresh(pageId?: string) {
+
+  async function load(pageId?: string) {
     if (!pageId) {
       prompts.value = [];
       return;
     }
+
     prompts.value = await $fetch<any>(`/api/pages/${pageId}/prompts`);
   }
 
-  return { prompts, refresh };
+  async function refresh(pageId?: string) {
+    await load(pageId);
+  }
+
+  return { prompts, load, refresh };
 }
