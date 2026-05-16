@@ -21,4 +21,12 @@ export default defineNuxtConfig({
   appConfig: {
     voteIntervalMinutes: 5,
   },
+  nitro: {
+    experimental: {
+      tasks: true,
+    },
+    scheduledTasks: {
+      "* * * * *": ["generate"],
+    },
+  },
 });
