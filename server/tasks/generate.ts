@@ -8,16 +8,7 @@ import {
   isNotNull,
   sql,
 } from "drizzle-orm";
-import { Message, streamObject, toAsyncIterator } from "xsai";
-import { z } from "zod";
-
-const generateOutputSchema = z.object({
-  response: z.string().describe("The assistant's reply to the user"),
-  html: z
-    .string()
-    .optional()
-    .describe("The complete updated HTML content of the page"),
-});
+import { Message, rawTool, streamText } from "xsai";
 
 type PendingPromptRow = {
   id: number;
@@ -79,7 +70,40 @@ async function runModel(
   content: string,
   historyPrompts: any[],
 ) {
-  const { partialObjectStream } = await streamObject({
+  let latestHtml = pageHtml;
+
+  const readHtmlTool = rawTool({
+    name: "read_html",
+    description: "Read current complete HTML content",
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+    execute: async () => latestHtml,
+  });
+
+  const writeHtmlTool = rawTool<{ html: string }>({
+    name: "write_html",
+    description: "Write full updated HTML content",
+    parameters: {
+      type: "object",
+      properties: {
+        html: {
+          type: "string",
+          description: "The complete updated HTML document",
+        },
+      },
+      required: ["html"],
+      additionalProperties: false,
+    },
+    execute: async ({ html }) => {
+      latestHtml = html;
+      return "ok";
+    },
+  });
+
+  const result = streamText({
     apiKey: process.env.OPENAI_API_KEY!,
     baseURL: process.env.OPENAI_BASE_URL!,
     model: process.env.OPENAI_MODEL!,
@@ -87,7 +111,7 @@ async function runModel(
       {
         role: "system",
         content:
-          "You are a web programming assistant. Based on the user's requirements, make the necessary modifications, and then output the complete updated HTML content of the page along with your response.",
+          "You are a web programming assistant. Use tools to read and write HTML. You MUST call read_html first to get current HTML, and call write_html with the complete updated HTML when changes are needed. In final answer, return only your user-facing response text.",
       },
       ...(historyPrompts
         .reverse()
@@ -98,28 +122,29 @@ async function runModel(
         .flat() as Message[]),
       {
         role: "user",
-        content: JSON.stringify({
-          html: pageHtml,
-          content,
-        }),
+        content,
       },
     ],
-    schema: generateOutputSchema,
+    maxSteps: 6,
+    tools: [readHtmlTool, writeHtmlTool],
   });
 
-  let finalChunk: z.infer<typeof generateOutputSchema> | undefined;
-  for await (const chunk of toAsyncIterator(partialObjectStream)) {
-    finalChunk = chunk as z.infer<typeof generateOutputSchema>;
+  let responseText = "";
+  for await (const chunk of result.textStream) {
+    responseText += chunk;
   }
 
-  if (!finalChunk?.response) {
+  if (!responseText.trim()) {
     throw createError({
       statusCode: 500,
       statusMessage: "Model returned empty response",
     });
   }
 
-  return finalChunk;
+  return {
+    response: responseText.trim(),
+    html: latestHtml,
+  };
 }
 
 async function generateForPage(pageId: string) {
