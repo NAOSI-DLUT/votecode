@@ -66,10 +66,12 @@ async function loadHistoryPrompts(tx: any, pageId: string) {
 }
 
 async function runModel(
+  pageId: string,
+  bestPrompt: Pick<PendingPromptRow, "id" | "content">,
   pageHtml: string,
-  content: string,
   historyPrompts: any[],
 ) {
+  const storage = useStorage();
   let latestHtml = pageHtml;
 
   const readHtmlTool = rawTool({
@@ -99,6 +101,7 @@ async function runModel(
     },
     execute: async ({ html }) => {
       latestHtml = html;
+      await storage.setItem(`pages:${pageId}:html`, latestHtml);
       return "ok";
     },
   });
@@ -122,7 +125,7 @@ async function runModel(
         .flat() as Message[]),
       {
         role: "user",
-        content,
+        content: bestPrompt.content,
       },
     ],
     maxSteps: 6,
@@ -132,6 +135,9 @@ async function runModel(
   let responseText = "";
   for await (const chunk of result.textStream) {
     responseText += chunk;
+    await storage.setItem(`pages:${pageId}:prompts:${bestPrompt.id}`, {
+      response: responseText,
+    });
   }
 
   if (!responseText.trim()) {
@@ -184,8 +190,9 @@ async function generateForPage(pageId: string) {
     const historyPrompts = await loadHistoryPrompts(tx, pageId);
 
     const finalChunk = await runModel(
+      pageId,
+      bestPrompt,
       page.html,
-      bestPrompt.content,
       historyPrompts,
     );
 
