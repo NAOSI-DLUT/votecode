@@ -42,6 +42,12 @@ const mode = useState("mode", () => "preview");
             />
           </template>
           <template #right>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-trophy"
+              to="/rankings"
+            />
             <UColorModeButton />
             <UDropdownMenu
               v-if="user"
