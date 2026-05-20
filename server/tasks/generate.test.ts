@@ -73,6 +73,53 @@ function makeSelectChain(rows: any[]) {
   };
 }
 
+function setupCommonDbState(initialHtml = "<html>\nold\n</html>") {
+  mockDbSelectWhere.mockResolvedValue([{ id: "page-1" }]);
+
+  mockTxExecute.mockResolvedValue([{ lock: true }]);
+  mockTxQueryPageFindFirst.mockResolvedValue({
+    id: "page-1",
+    html: initialHtml,
+  });
+
+  const pendingPrompts = [
+    {
+      id: 42,
+      pageId: "page-1",
+      userId: 7,
+      pending: true,
+      content: "make button red",
+      response: null,
+      createdAt: new Date("2026-05-17T00:00:00.000Z"),
+      voteCount: 3,
+      userName: "alice",
+    },
+  ];
+  const historyPrompts = [
+    { userId: 1, content: "old request", response: "old response" },
+  ];
+
+  mockTxSelect
+    .mockImplementationOnce(() => makeSelectChain(pendingPrompts))
+    .mockImplementationOnce(() => makeSelectChain(historyPrompts));
+
+  const updateWhere = vi.fn(async () => ({}));
+  mockTxUpdate.mockReturnValue({
+    set: vi.fn(() => ({
+      where: updateWhere,
+    })),
+  });
+
+  const tx = {
+    execute: mockTxExecute,
+    query: { pages: { findFirst: mockTxQueryPageFindFirst } },
+    select: mockTxSelect,
+    update: mockTxUpdate,
+  };
+
+  mockDbTransaction.mockImplementation(async (cb: any) => cb(tx));
+}
+
 describe("generate task streaming", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -89,97 +136,45 @@ describe("generate task streaming", () => {
       (err as any).statusCode = input?.statusCode;
       throw err;
     });
+  });
 
-    mockDbSelectWhere.mockResolvedValue([{ id: "page-1" }]);
+  it("applies one range edit, streams response, and persists final state", async () => {
+    setupCommonDbState("<html>\nold\n</html>");
 
-    mockTxExecute.mockResolvedValue([{ lock: true }]);
-    mockTxQueryPageFindFirst.mockResolvedValue({
-      id: "page-1",
-      html: "<html>old</html>",
-    });
+    mockStreamText.mockImplementation(({ tools, maxSteps }: any) => {
+      expect(maxSteps).toBe(6);
+      const readHtmlTool = tools.find((t: any) => t.name === "read_html");
+      const writeRangeTool = tools.find(
+        (t: any) => t.name === "write_html_range",
+      );
+      expect(readHtmlTool).toBeTruthy();
+      expect(writeRangeTool).toBeTruthy();
 
-    const pendingPrompts = [
-      {
-        id: 42,
-        pageId: "page-1",
-        userId: 7,
-        pending: true,
-        content: "make button red",
-        response: null,
-        createdAt: new Date("2026-05-17T00:00:00.000Z"),
-        voteCount: 3,
-        userName: "alice",
-      },
-    ];
-    const historyPrompts = [
-      { userId: 1, content: "old request", response: "old response" },
-    ];
-
-    mockTxSelect
-      .mockImplementationOnce(() => makeSelectChain(pendingPrompts))
-      .mockImplementationOnce(() => makeSelectChain(historyPrompts));
-
-    const updateWhere = vi.fn(async () => ({}));
-    mockTxUpdate.mockReturnValue({
-      set: vi.fn(() => ({
-        where: updateWhere,
-      })),
-    });
-
-    const tx = {
-      execute: mockTxExecute,
-      query: { pages: { findFirst: mockTxQueryPageFindFirst } },
-      select: mockTxSelect,
-      update: mockTxUpdate,
-    };
-
-    mockDbTransaction.mockImplementation(async (cb: any) => cb(tx));
-
-    mockStreamText.mockImplementation(({ tools }: any) => {
-      const writeHtmlTool = tools.find((t: any) => t.name === "write_html");
       const fullStream = (async function* () {
-        yield {
-          type: "tool-call-streaming-start",
-          toolCallId: "call-1",
-          toolName: "write_html",
-        };
-        yield {
-          type: "tool-call-delta",
-          toolCallId: "call-1",
-          toolName: "write_html",
-          argsTextDelta: '{"html":"<html>',
-        };
-        yield {
-          type: "tool-call-delta",
-          toolCallId: "call-1",
-          toolName: "write_html",
-          argsTextDelta: "step",
-        };
-        yield {
-          type: "tool-call-delta",
-          toolCallId: "call-1",
-          toolName: "write_html",
-          argsTextDelta: '-final</html>"}',
-        };
-        await writeHtmlTool.execute({ html: "<html>step-final</html>" });
+        const currentHtml = await readHtmlTool.execute({});
+        expect(currentHtml).toBe("<html>\nold\n</html>");
+        await writeRangeTool.execute({
+          startLine: 2,
+          endLine: 2,
+          newLines: ["step-final"],
+        });
         yield { type: "text-delta", text: "hello " };
         yield { type: "text-delta", text: "world" };
       })();
       return { fullStream };
     });
-  });
 
-  it("streams html/response to storage and persists final html/response to db", async () => {
     const mod = await import("./generate");
     await mod.default.run({} as any);
 
     const htmlWrites = mockSetItem.mock.calls.filter(
       ([key]) => key === "pages:page-1:html",
     );
-    expect(htmlWrites.length).toBeGreaterThanOrEqual(3);
-    expect(htmlWrites[0]?.[1]).toBe("<html>");
-    expect(htmlWrites[1]?.[1]).toBe("<html>step");
-    expect(htmlWrites[2]?.[1]).toBe("<html>step-final</html>");
+    expect(htmlWrites.length).toBeGreaterThanOrEqual(2);
+    expect(htmlWrites[0]?.[1]).toBe("<html>\nstep-final\n</html>");
+    expect(htmlWrites[htmlWrites.length - 1]?.[1]).toBe(
+      "<html>\nstep-final\n</html>",
+    );
 
     const promptWrites = mockSetItem.mock.calls.filter(
       ([key]) => key === "pages:page-1:prompts:42",
@@ -195,5 +190,77 @@ describe("generate task streaming", () => {
     expect(refreshWrites[0]?.[1]).toBe(true);
 
     expect(mockTxUpdate).toHaveBeenCalledTimes(3);
+  });
+
+  it("applies multiple range edits and broadcasts html after each write", async () => {
+    setupCommonDbState("<html>\nold-a\nold-b\n</html>");
+
+    mockStreamText.mockImplementation(({ tools }: any) => {
+      const writeRangeTool = tools.find(
+        (t: any) => t.name === "write_html_range",
+      );
+      const fullStream = (async function* () {
+        await writeRangeTool.execute({
+          startLine: 2,
+          endLine: 2,
+          newLines: ["new-a"],
+        });
+        await writeRangeTool.execute({
+          startLine: 3,
+          endLine: 3,
+          newLines: ["new-b"],
+        });
+        yield { type: "text-delta", text: "done" };
+      })();
+      return { fullStream };
+    });
+
+    const mod = await import("./generate");
+    await mod.default.run({} as any);
+
+    const htmlWrites = mockSetItem.mock.calls.filter(
+      ([key]) => key === "pages:page-1:html",
+    );
+    expect(htmlWrites.length).toBeGreaterThanOrEqual(3);
+    expect(htmlWrites[0]?.[1]).toBe("<html>\nnew-a\nold-b\n</html>");
+    expect(htmlWrites[1]?.[1]).toBe("<html>\nnew-a\nnew-b\n</html>");
+    expect(htmlWrites[htmlWrites.length - 1]?.[1]).toBe(
+      "<html>\nnew-a\nnew-b\n</html>",
+    );
+  });
+
+  it("skips persistence when range is invalid", async () => {
+    setupCommonDbState("<html>\nold\n</html>");
+
+    mockStreamText.mockImplementation(({ tools }: any) => {
+      const writeRangeTool = tools.find(
+        (t: any) => t.name === "write_html_range",
+      );
+      const fullStream = (async function* () {
+        await writeRangeTool.execute({
+          startLine: 0,
+          endLine: 1,
+          newLines: ["x"],
+        });
+        yield { type: "text-delta", text: "never" };
+      })();
+      return { fullStream };
+    });
+
+    const mod = await import("./generate");
+    const result = await mod.default.run({} as any);
+    expect(result).toEqual({
+      result: {
+        offset: expect.any(Number),
+        processed: 1,
+      },
+    });
+
+    const htmlWrites = mockSetItem.mock.calls.filter(
+      ([key]) => key === "pages:page-1:html",
+    );
+    expect(htmlWrites.length).toBe(0);
+
+    expect(mockTxUpdate).toHaveBeenCalledTimes(0);
   });
 });

@@ -65,83 +65,6 @@ async function loadHistoryPrompts(tx: any, pageId: string) {
     .limit(5);
 }
 
-function extractHtmlFromToolArgsBuffer(buffer: string): string | null {
-  const keyIndex = buffer.indexOf('"html"');
-  if (keyIndex === -1) {
-    return null;
-  }
-
-  let i = keyIndex + '"html"'.length;
-  while (i < buffer.length && /\s/.test(buffer[i]!)) i++;
-  if (buffer[i] !== ":") {
-    return null;
-  }
-  i++;
-  while (i < buffer.length && /\s/.test(buffer[i]!)) i++;
-  if (buffer[i] !== '"') {
-    return null;
-  }
-  i++;
-
-  let out = "";
-  while (i < buffer.length) {
-    const ch = buffer[i]!;
-    if (ch === '"') {
-      return out;
-    }
-    if (ch === "\\") {
-      const next = buffer[i + 1];
-      if (!next) {
-        return out;
-      }
-      if (next === '"' || next === "\\" || next === "/") {
-        out += next;
-        i += 2;
-        continue;
-      }
-      if (next === "b") {
-        out += "\b";
-        i += 2;
-        continue;
-      }
-      if (next === "f") {
-        out += "\f";
-        i += 2;
-        continue;
-      }
-      if (next === "n") {
-        out += "\n";
-        i += 2;
-        continue;
-      }
-      if (next === "r") {
-        out += "\r";
-        i += 2;
-        continue;
-      }
-      if (next === "t") {
-        out += "\t";
-        i += 2;
-        continue;
-      }
-      if (next === "u") {
-        const hex = buffer.slice(i + 2, i + 6);
-        if (hex.length < 4 || !/^[0-9a-fA-F]{4}$/.test(hex)) {
-          return out;
-        }
-        out += String.fromCharCode(Number.parseInt(hex, 16));
-        i += 6;
-        continue;
-      }
-      return out;
-    }
-    out += ch;
-    i++;
-  }
-
-  return out;
-}
-
 async function runModel(
   pageId: string,
   bestPrompt: Pick<PendingPromptRow, "id" | "content">,
@@ -163,21 +86,46 @@ async function runModel(
   });
 
   const writeHtmlTool = rawTool<{ html: string }>({
-    name: "write_html",
-    description: "Write full updated HTML content",
+    name: "write_html_range",
+    description: "Replace a line range in HTML and persist the updated full HTML",
     parameters: {
       type: "object",
       properties: {
-        html: {
-          type: "string",
-          description: "The complete updated HTML document",
+        startLine: {
+          type: "number",
+          description: "1-based start line (inclusive)",
+        },
+        endLine: {
+          type: "number",
+          description: "1-based end line (inclusive)",
+        },
+        newLines: {
+          type: "array",
+          description: "Replacement lines without trailing newline characters",
+          items: {
+            type: "string",
+          },
         },
       },
-      required: ["html"],
+      required: ["startLine", "endLine", "newLines"],
       additionalProperties: false,
     },
-    execute: async ({ html }) => {
-      latestHtml = html;
+    execute: async ({ startLine, endLine, newLines }) => {
+      const lines = latestHtml.split("\n");
+      if (
+        startLine < 1 ||
+        endLine < startLine ||
+        endLine > lines.length ||
+        !Array.isArray(newLines)
+      ) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: "Invalid write_html_range line range",
+        });
+      }
+
+      lines.splice(startLine - 1, endLine - startLine + 1, ...newLines);
+      latestHtml = lines.join("\n");
       await storage.setItem(`pages:${pageId}:html`, latestHtml);
       return "ok";
     },
@@ -191,7 +139,7 @@ async function runModel(
       {
         role: "system",
         content:
-          "You are a web programming assistant. Use tools to read and write HTML. Call read_html exactly once before editing. Call write_html exactly once with the complete updated HTML when any change is needed. Keep total tool calls <= 3. In final answer, return only your user-facing response text.",
+          "You are a web programming assistant. Use tools to read and edit HTML. Call read_html once before editing. Use write_html_range to edit only the needed lines (1-based inclusive range with newLines). Never send full HTML to a write tool. Keep tool calls minimal. In final answer, return only your user-facing response text.",
       },
       ...(historyPrompts
         .reverse()
@@ -205,13 +153,11 @@ async function runModel(
         content: bestPrompt.content,
       },
     ],
-    maxSteps: 3,
+    maxSteps: 6,
     tools: [readHtmlTool, writeHtmlTool],
   });
 
   let responseText = "";
-  const toolArgsBuffers = new Map<string, string>();
-  const toolHtmlByCallId = new Map<string, string>();
 
   for await (const event of result.fullStream as any) {
     if (event.type === "text-delta") {
@@ -220,24 +166,6 @@ async function runModel(
         response: responseText,
       });
       continue;
-    }
-
-    if (
-      event.type === "tool-call-delta" &&
-      event.toolName === "write_html" &&
-      typeof event.argsTextDelta === "string"
-    ) {
-      console.info(
-        `[generate] page=${pageId} tool=write_html deltaLength=${event.argsTextDelta.length}`,
-      );
-      const prev = toolArgsBuffers.get(event.toolCallId) || "";
-      const next = prev + event.argsTextDelta;
-      toolArgsBuffers.set(event.toolCallId, next);
-      const partialHtml = extractHtmlFromToolArgsBuffer(next);
-      if (partialHtml !== null && partialHtml !== toolHtmlByCallId.get(event.toolCallId)) {
-        toolHtmlByCallId.set(event.toolCallId, partialHtml);
-        await storage.setItem(`pages:${pageId}:html`, partialHtml);
-      }
     }
   }
 
