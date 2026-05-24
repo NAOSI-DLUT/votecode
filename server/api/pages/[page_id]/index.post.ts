@@ -2,6 +2,7 @@ import { db, schema } from "@nuxthub/db";
 import { createHash } from "crypto";
 
 export default defineEventHandler(async (event) => {
+  await requireUserSession(event);
   const { page_id } = getRouterParams(event);
   if (!page_id) {
     throw createError({

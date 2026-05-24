@@ -1,10 +1,19 @@
 <script setup lang="ts">
 const toast = useToast();
+const { user } = useUserSession();
 const { data: pages } = useFetch("/api/pages");
 
 const newPageId = ref("");
 
 function createPage() {
+  if (!user.value) {
+    toast.add({
+      title: "Please sign in",
+      description: "You need to sign in before creating a page.",
+      color: "warning",
+    });
+    return;
+  }
   if (!newPageId.value) return;
   $fetch(`/api/pages/${newPageId.value}`, {
     method: "POST",
@@ -55,11 +64,11 @@ function createPage() {
         variant="naked"
         icon="i-lucide-plus"
         :title="pages?.length ? 'Or create another page…' : 'No pages yet'"
-        :description="pages?.length ? '' : 'Create a page to get started'"
+        :description="user ? (pages?.length ? '' : 'Create a page to get started') : 'Sign in to create a page'"
       >
         <template #actions>
-          <UInput v-model="newPageId" />
-          <UButton @click="createPage">Create page</UButton>
+          <UInput v-model="newPageId" :disabled="!user" />
+          <UButton :disabled="!user" @click="createPage">Create page</UButton>
         </template>
       </UEmpty>
     </UPage>
