@@ -18,5 +18,14 @@ export default defineEventHandler(async (event) => {
       statusMessage: "Page not found",
     });
   }
-  return page;
+  const latestPrompt = page.latestPrompt
+    ? await db.query.prompts.findFirst({
+        where: eq(schema.prompts.id, page.latestPrompt),
+      })
+    : null;
+
+  return {
+    ...page,
+    html: latestPrompt?.html ?? "",
+  };
 });

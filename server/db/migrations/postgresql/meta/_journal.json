@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1770365095487,
-      "tag": "0000_left_psynapse",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1770735492328,
-      "tag": "0001_even_red_hulk",
+      "when": 1779605238443,
+      "tag": "0000_medical_paper_doll",
       "breakpoints": true
     }
   ]

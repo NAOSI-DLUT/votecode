@@ -1,5 +1,6 @@
 import { db, schema } from "@nuxthub/db";
 import { eq } from "drizzle-orm";
+import { generate } from "../../../../utils/generate";
 
 export default defineEventHandler(async (event) => {
   const { page_id } = getRouterParams(event);
@@ -11,23 +12,39 @@ export default defineEventHandler(async (event) => {
   }
 
   const { user } = await requireUserSession(event);
-  const storage = useStorage();
 
   const body = await readBody(event);
-  await db
+  const page = await db.query.pages.findFirst({
+    where: eq(schema.pages.id, page_id),
+  });
+  if (!page) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: "Page not found",
+    });
+  }
+
+  const inserted = await db
     .insert(schema.prompts)
     .values({
       pageId: page_id,
       userId: user.id,
+      parent: page.latestPrompt,
       content: body.content,
       createdAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: [schema.prompts.pageId, schema.prompts.userId],
-      targetWhere: eq(schema.prompts.pending, true),
-      set: { content: body.content, createdAt: new Date() },
+      html: "",
     })
     .returning();
-  storage.setItem(`pages:${page_id}:refresh`, true);
-  return [];
+
+  const prompt = inserted[0];
+  if (!prompt) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: "Failed to create prompt",
+    });
+  }
+
+  event.waitUntil?.(generate(prompt.id));
+  await useStorage().setItem(`pages:${page_id}:refresh`, true);
+  return { ok: true, promptId: prompt.id };
 });

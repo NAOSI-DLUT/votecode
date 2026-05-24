@@ -25,16 +25,14 @@ const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
           role: "user",
           avatar: {
             src: prompt.user?.avatar_url,
-            chip: {
-              size: "3xl",
-              color: prompt.pending
-                ? "warning"
-                : prompt.response
+              chip: {
+                size: "3xl",
+                color: prompt.response
                   ? "primary"
                   : "neutral",
-              text: prompt.voteCount,
-              position: "bottom-right",
-            },
+                text: prompt.voteCount,
+                position: "bottom-right",
+              },
           },
           parts: [{ type: "text", text: prompt.content }],
           actions: [

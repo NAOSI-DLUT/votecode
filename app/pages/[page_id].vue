@@ -29,17 +29,21 @@ onMounted(() => {
   eventSource.value = new EventSource(`/api/pages/${pageId.value}/sse`);
   eventSource.value.onmessage = (event) => {
     const data = JSON.parse(event.data) as { key: string; value: any };
-    if (data.key.startsWith(`pages:${pageId.value}:html`)) {
-      page.value!.html = data.value;
-    } else if (data.key.startsWith(`pages:${pageId.value}:prompts`)) {
+    if (data.key.startsWith(`pages:${pageId.value}:prompts`)) {
       const promptId = Number(data.key.split(":").slice(-1)[0]);
       const prompt = data.value;
       const index = prompts.value.findIndex((p) => p.id === promptId);
       if (index !== -1) {
         prompts.value[index] = Object.assign(prompts.value[index]!, prompt);
       }
+      if (page.value?.latestPrompt === promptId && prompt?.html) {
+        page.value.html = prompt.html;
+      }
     } else if (data.key.startsWith(`pages:${pageId.value}:refresh`)) {
       refresh(pageId.value);
+      $fetch(`/api/pages/${pageId.value}`).then((nextPage) => {
+        page.value = nextPage as any;
+      });
     }
   };
   timerInterval.value = setInterval(() => {

@@ -1,5 +1,5 @@
 {
-  "id": "9c3ef2bd-e541-43c8-939f-e13d23d56331",
+  "id": "237eca9c-4e4b-4d83-9652-df8e5d33da96",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -14,12 +14,17 @@
           "primaryKey": true,
           "notNull": true
         },
-        "html": {
-          "name": "html",
-          "type": "text",
+        "offset": {
+          "name": "offset",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body>Hello World!</body></html>'"
+          "notNull": true
+        },
+        "latest_prompt": {
+          "name": "latest_prompt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -52,12 +57,11 @@
           "primaryKey": false,
           "notNull": true
         },
-        "pending": {
-          "name": "pending",
-          "type": "boolean",
+        "parent": {
+          "name": "parent",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": true
+          "notNull": false
         },
         "content": {
           "name": "content",
@@ -70,6 +74,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "html": {
+          "name": "html",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         },
         "created_at": {
           "name": "created_at",
@@ -95,24 +106,17 @@
           "method": "btree",
           "with": {}
         },
-        "pending_unique_idx": {
-          "name": "pending_unique_idx",
+        "parent_idx": {
+          "name": "parent_idx",
           "columns": [
             {
-              "expression": "page_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "user_id",
+              "expression": "parent",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
-          "where": "\"prompts\".\"pending\" = true",
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -138,6 +142,19 @@
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "prompts_parent_prompts_id_fk": {
+          "name": "prompts_parent_prompts_id_fk",
+          "tableFrom": "prompts",
+          "tableTo": "prompts",
+          "columnsFrom": [
+            "parent"
           ],
           "columnsTo": [
             "id"

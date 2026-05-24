@@ -1,14 +1,12 @@
-import { isNull, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   pgTable,
   text,
   serial,
   integer,
   timestamp,
-  uniqueIndex,
   index,
   primaryKey,
-  boolean,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -21,11 +19,7 @@ export const users = pgTable("users", {
 export const pages = pgTable("pages", {
   id: text().primaryKey(),
   offset: integer().notNull(),
-  html: text()
-    .notNull()
-    .default(
-      '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>Hello World!</body></html>',
-    ),
+  latestPrompt: integer("latest_prompt"),
 });
 
 export const prompts = pgTable(
@@ -38,17 +32,13 @@ export const prompts = pgTable(
     userId: integer("user_id")
       .references(() => users.id)
       .notNull(),
-    pending: boolean().notNull().default(true),
+    parent: integer("parent").references((): AnyPgColumn => prompts.id),
     content: text().notNull(),
     response: text(),
+    html: text().notNull().default(""),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [
-    index("page_id_idx").on(table.pageId),
-    uniqueIndex("pending_unique_idx")
-      .on(table.pageId, table.userId)
-      .where(sql`${table.pending} = true`),
-  ],
+  (table) => [index("page_id_idx").on(table.pageId), index("parent_idx").on(table.parent)],
 );
 
 export const votes = pgTable(
