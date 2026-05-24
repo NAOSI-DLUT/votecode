@@ -94,18 +94,28 @@ describe("generate utils", () => {
     const { generate } = await import("./generate");
     await generate(10);
 
-    expect(mockDbUpdate).toHaveBeenCalledTimes(1);
+    expect(mockDbUpdate).toHaveBeenCalledTimes(2);
+    expect(mockDbUpdateSet).toHaveBeenCalledWith({
+      generating: true,
+      response: null,
+    });
     expect(mockDbUpdateSet).toHaveBeenCalledWith({
       response: "updated done",
       html: "<html>\n<title>New</title>\n<body>Hi</body>\n</html>",
+      generating: false,
     });
 
+    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1:prompts:10", {
+      generating: true,
+      response: null,
+    });
     expect(mockSetItem).toHaveBeenCalledWith("pages:page-1:prompts:10", {
       html: "<html>\n<title>New</title>\n<body>Hi</body>\n</html>",
     });
     expect(mockSetItem).toHaveBeenCalledWith("pages:page-1:prompts:10", {
       response: "updated done",
       html: "<html>\n<title>New</title>\n<body>Hi</body>\n</html>",
+      generating: false,
     });
     expect(mockSetItem).toHaveBeenCalledWith("pages:page-1:refresh", true);
   });

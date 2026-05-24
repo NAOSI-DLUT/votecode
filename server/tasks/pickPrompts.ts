@@ -35,8 +35,8 @@ async function pickNextPromptForPage(pageId: string) {
 
 export default defineTask({
   meta: {
-    name: "generate",
-    description: "Pick winning prompt by votes and update page latest prompt",
+    name: "pickPrompts",
+    description: "Pick winning prompts by votes and update each page latest prompt",
   },
   async run() {
     const { voteIntervalMinutes } = useAppConfig();
@@ -50,6 +50,25 @@ export default defineTask({
     for (const page of pages) {
       const candidate = await pickNextPromptForPage(page.id);
       if (!candidate) continue;
+      const current = await db.query.pages.findFirst({
+        where: eq(schema.pages.id, page.id),
+      });
+      if (!current) continue;
+
+      await db
+        .update(schema.prompts)
+        .set({ status: "rejected" })
+        .where(
+          current.latestPrompt === null
+            ? isNull(schema.prompts.parent)
+            : eq(schema.prompts.parent, current.latestPrompt),
+        );
+
+      await db
+        .update(schema.prompts)
+        .set({ status: "approved" })
+        .where(eq(schema.prompts.id, candidate.id));
+
       await db
         .update(schema.pages)
         .set({ latestPrompt: candidate.id })

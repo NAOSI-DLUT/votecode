@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
       content: body.content,
       createdAt: new Date(),
       html: "",
+      status: "pending",
     })
     .returning();
 

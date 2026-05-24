@@ -26,7 +26,7 @@ export default defineNuxtConfig({
       tasks: true,
     },
     scheduledTasks: {
-      "* * * * *": ["generate"],
+      "* * * * *": ["pickPrompts"],
     },
   },
 });

@@ -1,13 +1,17 @@
 import {
   type AnyPgColumn,
+  pgEnum,
   pgTable,
   text,
   serial,
   integer,
+  boolean,
   timestamp,
   index,
+  uniqueIndex,
   primaryKey,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
   id: integer().primaryKey(),
@@ -21,6 +25,12 @@ export const pages = pgTable("pages", {
   offset: integer().notNull(),
   latestPrompt: integer("latest_prompt"),
 });
+
+export const promptStatus = pgEnum("prompt_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
 
 export const prompts = pgTable(
   "prompts",
@@ -36,9 +46,16 @@ export const prompts = pgTable(
     content: text().notNull(),
     response: text(),
     html: text().notNull().default(""),
+    generating: boolean().notNull().default(false),
+    status: promptStatus().notNull().default("pending"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (table) => [index("page_id_idx").on(table.pageId), index("parent_idx").on(table.parent)],
+  (table) => [
+    index("page_id_idx").on(table.pageId),
+    index("parent_idx").on(table.parent),
+    uniqueIndex("prompts_parent_user_unique_idx")
+      .on(sql`coalesce(${table.parent}, -1)`, table.userId),
+  ],
 );
 
 export const votes = pgTable(

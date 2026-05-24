@@ -5,7 +5,7 @@ const { user } = useUserSession();
 const route = useRoute();
 const toast = useToast();
 const timer = useTimer();
-const { prompts, load, refresh } = usePrompts();
+const { prompts, load, refresh, selectPrompt } = usePrompts();
 
 const pageId = computed(() => route.params.page_id as string | undefined);
 
@@ -14,6 +14,13 @@ await load(pageId.value);
 watch(pageId, (value) => {
   void load(value);
 });
+
+function promptStatusColor(status?: string) {
+  if (status === "pending") return "warning";
+  if (status === "approved") return "success";
+  if (status === "rejected") return "neutral";
+  return "neutral";
+}
 
 const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
   if (!prompts.value) return [];
@@ -27,9 +34,7 @@ const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
             src: prompt.user?.avatar_url,
               chip: {
                 size: "3xl",
-                color: prompt.response
-                  ? "primary"
-                  : "neutral",
+                color: promptStatusColor(prompt.status),
                 text: prompt.voteCount,
                 position: "bottom-right",
               },
@@ -42,6 +47,13 @@ const messages = computed<(ChatMessageProps & { id: string })[]>(() => {
               color: prompt.voted ? "primary" : "neutral",
               onClick: () => {
                 vote(prompt.id, !prompt.voted);
+              },
+            },
+            {
+              label: "View generated HTML",
+              icon: "i-lucide-file-code-2",
+              onClick: () => {
+                selectPrompt(prompt.id);
               },
             },
             {

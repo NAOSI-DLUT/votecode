@@ -1,6 +1,7 @@
 import { db, schema } from "@nuxthub/db";
 import { eq } from "drizzle-orm";
-import { Message, rawTool, streamText } from "xsai";
+import type { Message } from "xsai";
+import { rawTool, streamText } from "xsai";
 
 export async function generate(promptId: number) {
   const storage = useStorage();
@@ -10,6 +11,14 @@ export async function generate(promptId: number) {
   if (!prompt) {
     throw createError({ statusCode: 404, statusMessage: "Prompt not found" });
   }
+  await db
+    .update(schema.prompts)
+    .set({ generating: true, response: null })
+    .where(eq(schema.prompts.id, prompt.id));
+  await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, {
+    generating: true,
+    response: null,
+  });
 
   const parent = prompt.parent
     ? await db.query.prompts.findFirst({ where: eq(schema.prompts.id, prompt.parent) })
@@ -89,18 +98,43 @@ export async function generate(promptId: number) {
     }
   }
 
-  if (!responseText.trim()) {
-    throw createError({ statusCode: 500, statusMessage: "Model returned empty response" });
+  try {
+    if (!responseText.trim()) {
+      throw createError({ statusCode: 500, statusMessage: "Model returned empty response" });
+    }
+
+    await db
+      .update(schema.prompts)
+      .set({ response: responseText.trim(), html: latestHtml, generating: false })
+      .where(eq(schema.prompts.id, prompt.id));
+
+    await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, {
+      response: responseText.trim(),
+      html: latestHtml,
+      generating: false,
+    });
+    await storage.setItem(`pages:${prompt.pageId}:refresh`, true);
+  } catch (error: any) {
+    await db
+      .update(schema.prompts)
+      .set({
+        generating: false,
+        response:
+          responseText.trim() ||
+          error?.statusMessage ||
+          error?.message ||
+          "Generation failed",
+      })
+      .where(eq(schema.prompts.id, prompt.id));
+    await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, {
+      generating: false,
+      response:
+        responseText.trim() ||
+        error?.statusMessage ||
+        error?.message ||
+        "Generation failed",
+    });
+    await storage.setItem(`pages:${prompt.pageId}:refresh`, true);
+    throw error;
   }
-
-  await db
-    .update(schema.prompts)
-    .set({ response: responseText.trim(), html: latestHtml })
-    .where(eq(schema.prompts.id, prompt.id));
-
-  await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, {
-    response: responseText.trim(),
-    html: latestHtml,
-  });
-  await storage.setItem(`pages:${prompt.pageId}:refresh`, true);
 }

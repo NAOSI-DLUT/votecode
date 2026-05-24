@@ -19,5 +19,10 @@ export default function usePrompts() {
     await load(pageId);
   }
 
-  return { prompts, load, refresh };
+  const selectedPromptId = useState<number | null>("selected-prompt-id", () => null);
+  function selectPrompt(promptId: number | null) {
+    selectedPromptId.value = promptId;
+  }
+
+  return { prompts, load, refresh, selectedPromptId, selectPrompt };
 }
