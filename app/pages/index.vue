@@ -1,12 +1,23 @@
 <script setup lang="ts">
 const toast = useToast();
-const { user } = useUserSession();
+const session = useUserSession();
 const { data: pages } = useFetch("/api/pages");
 
 const newPageId = ref("");
+const canCreatePage = computed(
+  () => session.ready.value && session.loggedIn.value,
+);
+
+onMounted(() => {
+  void session.fetch();
+});
+
+function normalizePageId(pageId: string) {
+  return pageId.trim().toLowerCase();
+}
 
 function createPage() {
-  if (!user.value) {
+  if (!session.loggedIn.value) {
     toast.add({
       title: "Please sign in",
       description: "You need to sign in before creating a page.",
@@ -15,17 +26,26 @@ function createPage() {
     return;
   }
   if (!newPageId.value) return;
-  $fetch(`/api/pages/${newPageId.value}`, {
+  const pageId = normalizePageId(newPageId.value);
+  if (!/^[a-z_-]+$/.test(pageId)) {
+    toast.add({
+      title: "Invalid page id",
+      description: "Page id can only contain lowercase letters, hyphens, and underscores.",
+      color: "warning",
+    });
+    return;
+  }
+  $fetch(`/api/pages/${pageId}`, {
     method: "POST",
   })
     .then((res) => {
       if (!res.length) {
         toast.add({
           title: "Oops!",
-          description: `Page ${newPageId.value} already exists`,
+          description: `Page ${pageId} already exists`,
         });
       }
-      navigateTo(`/` + newPageId.value);
+      navigateTo(`/` + pageId);
     })
     .catch((err) => {
       toast.add({
@@ -64,11 +84,21 @@ function createPage() {
         variant="naked"
         icon="i-lucide-plus"
         :title="pages?.length ? 'Or create another page…' : 'No pages yet'"
-        :description="user ? (pages?.length ? '' : 'Create a page to get started') : 'Sign in to create a page'"
+        :description="
+          canCreatePage
+            ? pages?.length
+              ? ''
+              : 'Create a page to get started'
+            : session.ready
+              ? 'Sign in to create a page'
+              : 'Checking your session...'
+        "
       >
         <template #actions>
-          <UInput v-model="newPageId" :disabled="!user" />
-          <UButton :disabled="!user" @click="createPage">Create page</UButton>
+          <UInput v-model="newPageId" :disabled="!canCreatePage" />
+          <UButton :disabled="!canCreatePage" @click="createPage">
+            Create page
+          </UButton>
         </template>
       </UEmpty>
     </UPage>
