@@ -25,13 +25,10 @@ if (error.value) {
   });
 }
 
-const { data: prompts, refresh: refreshPrompts } = await useFetch(
-  `/api/pages/${pageId.value}/prompts`,
-  {
-    deep: true,
-    default: () => [],
-  },
-);
+const { data: prompts } = await useFetch(`/api/pages/${pageId.value}/prompts`, {
+  deep: true,
+  default: () => [],
+});
 
 const { voteIntervalMinutes } = useAppConfig();
 const hasPrompt = computed(() =>
@@ -48,15 +45,16 @@ const latestPrompt = computed(() =>
     : (prompts.value.find((prompt) => prompt.id === page.value?.latestPrompt) ??
       null),
 );
-const currentPrompt = computed(() => selectedPrompt.value ?? latestPrompt.value);
+const currentPrompt = computed(
+  () => selectedPrompt.value ?? latestPrompt.value,
+);
 const currentPromptTitle = computed(() => {
   if (!currentPrompt.value) return "";
   return `#${currentPrompt.value.id} by @${currentPrompt.value.user?.name?.replace(/^@/, "") || "unknown"}`;
 });
-const displayHtml = computed(() => {
-  if (selectedPrompt.value?.html) return selectedPrompt.value.html;
-  return page.value?.html ?? "";
-});
+const displayHtml = ref("");
+const htmlController = ref<AbortController | null>(null);
+const htmlRequestId = ref(0);
 const isPreviewingPrompt = (promptId: number) =>
   selectedPromptId.value === null
     ? page.value?.latestPrompt === promptId
@@ -66,6 +64,85 @@ const promptPlaceholder = computed(() => {
   if (hasPrompt.value) return "This page already has a prompt.";
   return "";
 });
+
+if (
+  import.meta.server &&
+  currentPrompt.value &&
+  !currentPrompt.value.generating
+) {
+  displayHtml.value = await $fetch<string>(
+    `/api/pages/${pageId.value}/html/${currentPrompt.value.id}`,
+  );
+}
+
+async function syncDisplayHtml() {
+  const prompt = currentPrompt.value;
+  htmlController.value?.abort();
+  if (!prompt) {
+    displayHtml.value = "";
+    return;
+  }
+
+  const requestId = ++htmlRequestId.value;
+  const controller = new AbortController();
+  htmlController.value = controller;
+
+  try {
+    const response = await fetch(
+      `/api/pages/${pageId.value}/html/${prompt.id}`,
+      {
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) {
+      throw new Error("Failed to load HTML");
+    }
+
+    if (!prompt.generating) {
+      const html = await response.text();
+      if (htmlRequestId.value === requestId) {
+        displayHtml.value = html;
+      }
+      return;
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) return;
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split("\n\n");
+      buffer = chunks.pop() ?? "";
+
+      for (const chunk of chunks) {
+        const html = chunk
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) =>
+            line.startsWith("data: ") ? line.slice(6) : line.slice(5),
+          )
+          .join("\n");
+        if (htmlRequestId.value === requestId) {
+          displayHtml.value = html;
+        }
+      }
+    }
+  } catch (err: any) {
+    if (err.name === "AbortError") return;
+
+    toast.add({
+      title: "Failed to load HTML",
+      description: err.data?.message || err.message,
+      color: "error",
+    });
+  }
+}
 
 function promptStatusColor(status?: string) {
   if (status === "pending") return "warning";
@@ -171,17 +248,13 @@ function vote(promptId: number, vote: boolean = true) {
   $fetch(`/api/pages/${pageId.value}/votes/${promptId}`, {
     method: "POST",
     body: { vote },
-  })
-    .then(() => {
-      refreshPrompts();
-    })
-    .catch((err) => {
-      toast.add({
-        title: "Failed to vote to prompt",
-        description: err.data?.message || err.message,
-        color: "error",
-      });
+  }).catch((err) => {
+    toast.add({
+      title: "Failed to vote to prompt",
+      description: err.data?.message || err.message,
+      color: "error",
     });
+  });
 }
 
 function copy(text: string) {
@@ -191,27 +264,35 @@ function copy(text: string) {
 const timerInterval = ref<NodeJS.Timeout>();
 const eventSource = ref<EventSource>();
 
+if (import.meta.client) {
+  watch(
+    () => [currentPrompt.value?.id, currentPrompt.value?.generating],
+    () => {
+      syncDisplayHtml();
+    },
+    { immediate: true },
+  );
+}
+
 onMounted(() => {
-  eventSource.value = new EventSource(`/api/pages/${pageId.value}/sse`);
+  eventSource.value = new EventSource(`/api/pages/${pageId.value}/prompts/sse`);
   eventSource.value.onmessage = (event) => {
-    const data = JSON.parse(event.data) as { key: string; value: any };
-    if (data.key.startsWith(`pages:${pageId.value}:prompts`)) {
-      const promptId = Number(data.key.split(":").slice(-1)[0]);
-      const prompt = data.value;
-      const index = prompts.value.findIndex((item) => item.id === promptId);
-      if (index !== -1) {
-        prompts.value[index] = Object.assign(prompts.value[index]!, prompt);
-      } else {
-        refreshPrompts();
-      }
-      if (page.value?.latestPrompt === promptId && prompt?.html) {
-        page.value.html = prompt.html;
-      }
-    } else if (data.key.startsWith(`pages:${pageId.value}:refresh`)) {
-      refreshPrompts();
-      $fetch(`/api/pages/${pageId.value}`).then((nextPage) => {
-        page.value = nextPage as any;
-      });
+    const prompt = JSON.parse(event.data) as any;
+    if (!prompt?.id) {
+      return;
+    }
+
+    const index = prompts.value.findIndex((item) => item.id === prompt.id);
+    if (index !== -1) {
+      prompts.value[index] = Object.assign(prompts.value[index]!, prompt);
+    } else {
+      prompts.value = [...prompts.value, prompt].sort(
+        (a: any, b: any) => a.id - b.id,
+      );
+    }
+
+    if (prompt.status === "approved" && page.value) {
+      page.value.latestPrompt = prompt.id;
     }
   };
   timerInterval.value = setInterval(() => {
@@ -223,6 +304,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  htmlController.value?.abort();
   clearInterval(timerInterval.value);
   eventSource.value?.close();
 });

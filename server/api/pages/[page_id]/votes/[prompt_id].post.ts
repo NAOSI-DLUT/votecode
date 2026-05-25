@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
   const { page_id, prompt_id } = getRouterParams(event);
@@ -12,22 +12,32 @@ export default defineEventHandler(async (event) => {
 
   const { user } = await requireUserSession(event);
   const body = await readBody(event);
-  if (body.vote) {
-    return await db
-      .insert(schema.votes)
-      .values({
-        promptId: Number(prompt_id),
-        userId: user.id,
-      })
-      .onConflictDoNothing();
-  } else {
-    return await db
-      .delete(schema.votes)
-      .where(
-        and(
-          eq(schema.votes.promptId, Number(prompt_id)),
-          eq(schema.votes.userId, user.id),
-        ),
-      );
-  }
+  const promptId = Number(prompt_id);
+
+  const result = body.vote
+    ? await db
+        .insert(schema.votes)
+        .values({
+          promptId,
+          userId: user.id,
+        })
+        .onConflictDoNothing()
+    : await db
+        .delete(schema.votes)
+        .where(
+          and(eq(schema.votes.promptId, promptId), eq(schema.votes.userId, user.id)),
+        );
+
+  const rows = await db
+    .select({ voteCount: count(schema.votes) })
+    .from(schema.votes)
+    .where(eq(schema.votes.promptId, promptId));
+
+  await useStorage().setItem(`pages:${page_id}`, {
+    id: promptId,
+    voteCount: rows[0]?.voteCount ?? 0,
+    voted: Boolean(body.vote),
+  });
+
+  return result;
 });

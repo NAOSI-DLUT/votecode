@@ -1,6 +1,8 @@
 import { db, schema } from "@nuxthub/db";
 import { asc, count, eq, getTableColumns, sql } from "drizzle-orm";
 
+const { html: _html, ...promptColumns } = getTableColumns(schema.prompts);
+
 export default defineEventHandler(async (event) => {
   const { page_id } = getRouterParams(event);
   if (!page_id) {
@@ -13,7 +15,7 @@ export default defineEventHandler(async (event) => {
 
   return await db
     .select({
-      ...getTableColumns(schema.prompts),
+      ...promptColumns,
       user: schema.users,
       voteCount: count(schema.votes),
       voted: sql<boolean>`bool_or(${schema.votes.userId} = ${user?.id ?? -1})`,

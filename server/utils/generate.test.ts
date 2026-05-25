@@ -105,18 +105,25 @@ describe("generate utils", () => {
       generating: false,
     });
 
-    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1:prompts:10", {
+    expect(mockSetItem).toHaveBeenCalledWith("html:10", "<html>\n<title>Old</title>\n<body>Hi</body>\n</html>");
+    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
+      id: 10,
       generating: true,
       response: null,
     });
-    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1:prompts:10", {
-      html: "<html>\n<title>New</title>\n<body>Hi</body>\n</html>",
+    expect(mockSetItem).toHaveBeenCalledWith("html:10", "<html>\n<title>New</title>\n<body>Hi</body>\n</html>");
+    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
+      id: 10,
+      response: "updated ",
     });
-    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1:prompts:10", {
+    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
+      id: 10,
       response: "updated done",
-      html: "<html>\n<title>New</title>\n<body>Hi</body>\n</html>",
+    });
+    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
+      id: 10,
+      response: "updated done",
       generating: false,
     });
-    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1:refresh", true);
   });
 });

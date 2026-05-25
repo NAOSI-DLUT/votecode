@@ -45,7 +45,17 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  await useStorage().setItem(`pages:${page_id}`, {
+    ...prompt,
+    user: {
+      id: user.id,
+      name: user.name,
+      avatar_url: user.avatar_url,
+      html_url: user.html_url,
+    },
+    voteCount: 0,
+    voted: false,
+  });
   event.waitUntil?.(generate(prompt.id));
-  await useStorage().setItem(`pages:${page_id}:refresh`, true);
   return { ok: true, promptId: prompt.id };
 });

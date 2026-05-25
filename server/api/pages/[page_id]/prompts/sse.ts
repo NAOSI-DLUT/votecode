@@ -21,14 +21,16 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  const promptKey = `pages:${page_id}`;
   const eventStream = createEventStream(event);
   const unwatch = await storage.watch(async (event, key) => {
-    if (key?.startsWith(`pages:${page_id}:`)) {
-      eventStream.push(
-        JSON.stringify({ event, key, value: await storage.getItem(key) }),
-      );
+    if (key !== promptKey) {
+      return;
     }
+
+    eventStream.push(JSON.stringify(storage.getItem(promptKey)));
   });
+
   eventStream.onClosed(unwatch);
   return eventStream.send();
 });

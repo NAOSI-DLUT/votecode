@@ -15,16 +15,18 @@ export async function generate(promptId: number) {
     .update(schema.prompts)
     .set({ generating: true, response: null })
     .where(eq(schema.prompts.id, prompt.id));
-  await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, {
-    generating: true,
-    response: null,
-  });
 
   const parent = prompt.parent
     ? await db.query.prompts.findFirst({ where: eq(schema.prompts.id, prompt.parent) })
     : null;
 
   let latestHtml = parent?.html ?? "";
+  await storage.setItem(`html:${prompt.id}`, latestHtml);
+  await storage.setItem(`pages:${prompt.pageId}`, {
+    id: prompt.id,
+    generating: true,
+    response: null,
+  });
 
   const readHtmlTool = rawTool({
     name: "read_html",
@@ -69,7 +71,7 @@ export async function generate(promptId: number) {
         latestHtml = latestHtml.split(pattern).join(replacement);
       }
 
-      await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, { html: latestHtml });
+      await storage.setItem(`html:${prompt.id}`, latestHtml);
       return "ok";
     },
   });
@@ -94,7 +96,10 @@ export async function generate(promptId: number) {
   for await (const event of result.fullStream as any) {
     if (event.type === "text-delta") {
       responseText += event.text;
-      await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, { response: responseText });
+      await storage.setItem(`pages:${prompt.pageId}`, {
+        id: prompt.id,
+        response: responseText,
+      });
     }
   }
 
@@ -108,12 +113,11 @@ export async function generate(promptId: number) {
       .set({ response: responseText.trim(), html: latestHtml, generating: false })
       .where(eq(schema.prompts.id, prompt.id));
 
-    await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, {
+    await storage.setItem(`pages:${prompt.pageId}`, {
+      id: prompt.id,
       response: responseText.trim(),
-      html: latestHtml,
       generating: false,
     });
-    await storage.setItem(`pages:${prompt.pageId}:refresh`, true);
   } catch (error: any) {
     await db
       .update(schema.prompts)
@@ -126,7 +130,8 @@ export async function generate(promptId: number) {
           "Generation failed",
       })
       .where(eq(schema.prompts.id, prompt.id));
-    await storage.setItem(`pages:${prompt.pageId}:prompts:${prompt.id}`, {
+    await storage.setItem(`pages:${prompt.pageId}`, {
+      id: prompt.id,
       generating: false,
       response:
         responseText.trim() ||
@@ -134,7 +139,6 @@ export async function generate(promptId: number) {
         error?.message ||
         "Generation failed",
     });
-    await storage.setItem(`pages:${prompt.pageId}:refresh`, true);
     throw error;
   }
 }

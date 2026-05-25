@@ -55,6 +55,15 @@ export default defineTask({
       });
       if (!current) continue;
 
+      const affectedPrompts = await db
+        .select({ id: schema.prompts.id })
+        .from(schema.prompts)
+        .where(
+          current.latestPrompt === null
+            ? isNull(schema.prompts.parent)
+            : eq(schema.prompts.parent, current.latestPrompt),
+        );
+
       await db
         .update(schema.prompts)
         .set({ status: "rejected" })
@@ -73,7 +82,14 @@ export default defineTask({
         .update(schema.pages)
         .set({ latestPrompt: candidate.id })
         .where(eq(schema.pages.id, page.id));
-      await useStorage().setItem(`pages:${page.id}:refresh`, true);
+
+      const storage = useStorage();
+      for (const prompt of affectedPrompts) {
+        await storage.setItem(`pages:${page.id}`, {
+          id: prompt.id,
+          status: prompt.id === candidate.id ? "approved" : "rejected",
+        });
+      }
       processed += 1;
     }
 
