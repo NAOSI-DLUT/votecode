@@ -1,9 +1,4 @@
 <script setup lang="ts">
-import type { InternalApi } from "nitropack/types";
-
-type Prompts = InternalApi["/api/pages/:page_id/prompts"]["get"];
-type Prompt = Prompts[number];
-
 definePageMeta({ layout: false });
 
 const route = useRoute();
@@ -13,7 +8,6 @@ const { user, clear } = useUserSession();
 
 const pageId = computed(() => route.params.page_id as string);
 const mode = ref<"preview" | "code">("preview");
-const showTree = ref(false);
 const newPrompt = ref("");
 const selectedPromptId = ref<number | null>(null);
 
@@ -48,10 +42,25 @@ const hasPrompt = computed(() =>
 const selectedPrompt = computed(() =>
   prompts.value.find((prompt) => prompt.id === selectedPromptId.value),
 );
+const latestPrompt = computed(() =>
+  page.value?.latestPrompt == null
+    ? null
+    : (prompts.value.find((prompt) => prompt.id === page.value?.latestPrompt) ??
+      null),
+);
+const currentPrompt = computed(() => selectedPrompt.value ?? latestPrompt.value);
+const currentPromptTitle = computed(() => {
+  if (!currentPrompt.value) return "";
+  return `#${currentPrompt.value.id} by @${currentPrompt.value.user?.name?.replace(/^@/, "") || "unknown"}`;
+});
 const displayHtml = computed(() => {
   if (selectedPrompt.value?.html) return selectedPrompt.value.html;
   return page.value?.html ?? "";
 });
+const isPreviewingPrompt = (promptId: number) =>
+  selectedPromptId.value === null
+    ? page.value?.latestPrompt === promptId
+    : selectedPromptId.value === promptId;
 const promptPlaceholder = computed(() => {
   if (!user.value) return "Please sign in to continue…";
   if (hasPrompt.value) return "This page already has a prompt.";
@@ -60,7 +69,7 @@ const promptPlaceholder = computed(() => {
 
 function promptStatusColor(status?: string) {
   if (status === "pending") return "warning";
-  if (status === "approved") return "success";
+  if (status === "approved") return "primary";
   if (status === "rejected") return "neutral";
   return "neutral";
 }
@@ -93,9 +102,12 @@ const messages = computed<any[]>(() => {
             },
             {
               label: "View generated HTML",
-              icon: "i-lucide-file-code-2",
+              icon: "i-lucide-eye",
+              color: isPreviewingPrompt(prompt.id) ? "primary" : "neutral",
               onClick: () => {
-                selectedPromptId.value = prompt.id;
+                selectedPromptId.value = isPreviewingPrompt(prompt.id)
+                  ? null
+                  : prompt.id;
               },
             },
             {
@@ -214,13 +226,6 @@ onUnmounted(() => {
   clearInterval(timerInterval.value);
   eventSource.value?.close();
 });
-
-const treeRoots = computed(() =>
-  prompts.value.filter((prompt) => prompt.parent === null),
-);
-function treeChildren(promptId: number) {
-  return prompts.value.filter((prompt) => prompt.parent === promptId);
-}
 </script>
 
 <template>
@@ -303,8 +308,8 @@ function treeChildren(promptId: number) {
 
       <UDashboardPanel :ui="{ body: 'p-0!' }">
         <template #header>
-          <UDashboardNavbar>
-            <template #title>
+          <UDashboardNavbar :title="currentPromptTitle">
+            <template #leading>
               <UTabs
                 v-model="mode"
                 :items="[
@@ -373,62 +378,5 @@ function treeChildren(promptId: number) {
         </template>
       </UDashboardPanel>
     </UDashboardGroup>
-
-    <div class="fixed right-4 bottom-4 z-50 flex gap-2">
-      <UButton
-        icon="i-lucide-git-branch-plus"
-        color="neutral"
-        variant="solid"
-        @click="showTree = true"
-      >
-        Prompt Tree
-      </UButton>
-      <UButton
-        v-if="selectedPromptId"
-        icon="i-lucide-x"
-        color="neutral"
-        variant="outline"
-        @click="selectedPromptId = null"
-      >
-        Back To Latest
-      </UButton>
-    </div>
-
-    <UModal v-model:open="showTree" title="Prompt Tree">
-      <template #body>
-        <div class="max-h-[60vh] space-y-3 overflow-auto">
-          <div v-if="treeRoots.length === 0" class="text-sm text-muted">
-            No prompts yet.
-          </div>
-          <div
-            v-for="root in treeRoots"
-            :key="`root-${root.id}`"
-            class="space-y-2"
-          >
-            <UButton
-              size="xs"
-              variant="soft"
-              :color="selectedPromptId === root.id ? 'primary' : 'neutral'"
-              @click="selectedPromptId = root.id"
-            >
-              #{{ root.id }} · {{ root.status }}
-            </UButton>
-            <div class="space-y-2 border-l border-default pl-4">
-              <UButton
-                v-for="child in treeChildren(root.id)"
-                :key="`child-${child.id}`"
-                size="xs"
-                variant="soft"
-                :color="selectedPromptId === child.id ? 'primary' : 'neutral'"
-                @click="selectedPromptId = child.id"
-              >
-                #{{ child.id }} · parent #{{ child.parent }} ·
-                {{ child.status }}
-              </UButton>
-            </div>
-          </div>
-        </div>
-      </template>
-    </UModal>
   </template>
 </template>
