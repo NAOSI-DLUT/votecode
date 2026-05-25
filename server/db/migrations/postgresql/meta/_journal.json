@@ -15,6 +15,13 @@
       "when": 1779609947812,
       "tag": "0001_married_stardust",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779717057547,
+      "tag": "0002_real_shaman",
+      "breakpoints": true
     }
   ]
 }

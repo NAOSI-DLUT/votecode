@@ -54,7 +54,7 @@ export const prompts = pgTable(
     index("page_id_idx").on(table.pageId),
     index("parent_idx").on(table.parent),
     uniqueIndex("prompts_parent_user_unique_idx")
-      .on(sql`coalesce(${table.parent}, -1)`, table.userId),
+      .on(table.pageId, sql`coalesce(${table.parent}, -1)`, table.userId),
   ],
 );
 
