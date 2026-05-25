@@ -5,6 +5,7 @@ import { rawTool, streamText } from "xsai";
 
 export async function generate(promptId: number) {
   const storage = useStorage();
+  console.info("[generate] start", { promptId });
   const prompt = await db.query.prompts.findFirst({
     where: eq(schema.prompts.id, promptId),
   });
@@ -21,6 +22,14 @@ export async function generate(promptId: number) {
     : null;
 
   let latestHtml = parent?.html ?? "";
+  console.info("[generate] prompt context", {
+    promptId: prompt.id,
+    pageId: prompt.pageId,
+    parentId: prompt.parent ?? null,
+    parentHtmlLength: parent?.html?.length ?? 0,
+    initialHtmlLength: latestHtml.length,
+    promptLength: prompt.content.length,
+  });
   await storage.setItem(`html:${prompt.id}`, latestHtml);
   await storage.setItem(`pages:${prompt.pageId}`, {
     id: prompt.id,
@@ -59,6 +68,7 @@ export async function generate(promptId: number) {
         throw createError({ statusCode: 400, statusMessage: "pattern is required" });
       }
 
+      const beforeLength = latestHtml.length;
       if (regex) {
         let regExp: RegExp;
         try {
@@ -70,6 +80,14 @@ export async function generate(promptId: number) {
       } else {
         latestHtml = latestHtml.split(pattern).join(replacement);
       }
+      const afterLength = latestHtml.length;
+      console.info("[generate] html updated", {
+        promptId: prompt.id,
+        mode: regex ? "regex" : "plain",
+        beforeLength,
+        afterLength,
+        changed: beforeLength !== afterLength || pattern !== replacement,
+      });
 
       await storage.setItem(`html:${prompt.id}`, latestHtml);
       return "ok";
@@ -104,6 +122,12 @@ export async function generate(promptId: number) {
   }
 
   try {
+    console.info("[generate] stream completed", {
+      promptId: prompt.id,
+      responseLength: responseText.trim().length,
+      finalHtmlLength: latestHtml.length,
+      htmlEmpty: latestHtml.trim().length === 0,
+    });
     if (!responseText.trim()) {
       throw createError({ statusCode: 500, statusMessage: "Model returned empty response" });
     }
@@ -118,7 +142,14 @@ export async function generate(promptId: number) {
       response: responseText.trim(),
       generating: false,
     });
+    console.info("[generate] success", { promptId: prompt.id });
   } catch (error: any) {
+    console.info("[generate] failed", {
+      promptId: prompt.id,
+      responseLength: responseText.trim().length,
+      finalHtmlLength: latestHtml.length,
+      error: error?.statusMessage || error?.message || "Generation failed",
+    });
     await db
       .update(schema.prompts)
       .set({
