@@ -25,10 +25,13 @@ if (error.value) {
   });
 }
 
-const { data: prompts } = await useFetch(`/api/pages/${pageId.value}/prompts`, {
-  deep: true,
-  default: () => [],
-});
+const { data: prompts, refresh: refreshPrompts } = await useFetch(
+  `/api/pages/${pageId.value}/prompts`,
+  {
+    deep: true,
+    default: () => [],
+  },
+);
 
 const { voteIntervalMinutes } = useAppConfig();
 const hasPrompt = computed(() =>
@@ -52,7 +55,20 @@ const currentPromptTitle = computed(() => {
   if (!currentPrompt.value) return "";
   return `#${currentPrompt.value.id} by @${currentPrompt.value.user?.name?.replace(/^@/, "") || "unknown"}`;
 });
-const displayHtml = ref("");
+const currentPromptId = computed(() => currentPrompt.value?.id ?? null);
+const { data: html, refresh: refreshHtml } = await useAsyncData<string>(
+  () => `pages:${pageId.value}:html:${currentPromptId.value}`,
+  async () =>
+    currentPromptId.value
+      ? await $fetch<string>(
+          `/api/pages/${pageId.value}/html/${currentPromptId.value}`,
+        )
+      : "",
+  {
+    default: () => "",
+    watch: [currentPromptId],
+  },
+);
 const isPreviewingPrompt = (promptId: number) =>
   selectedPromptId.value === null
     ? page.value?.latestPrompt === promptId
@@ -62,35 +78,6 @@ const promptPlaceholder = computed(() => {
   if (hasPrompt.value) return "This page already has a prompt.";
   return "";
 });
-
-if (import.meta.server && currentPrompt.value) {
-  displayHtml.value = await $fetch<string>(
-    `/api/pages/${pageId.value}/html/${currentPrompt.value.id}`,
-  );
-}
-
-async function syncDisplayHtml() {
-  const prompt = currentPrompt.value;
-  if (!prompt) {
-    displayHtml.value = "";
-    return;
-  }
-
-  try {
-    const html = await $fetch<string>(
-      `/api/pages/${pageId.value}/html/${prompt.id}`,
-    );
-    if (currentPrompt.value?.id === prompt.id) {
-      displayHtml.value = html;
-    }
-  } catch (err: any) {
-    toast.add({
-      title: "Failed to load HTML",
-      description: err.data?.message || err.message,
-      color: "error",
-    });
-  }
-}
 
 function promptStatusColor(status?: string) {
   if (status === "pending") return "warning";
@@ -192,11 +179,20 @@ function submitPrompt() {
     });
 }
 
-function vote(promptId: number, vote: boolean = true) {
+function vote(promptId: number, nextVoted: boolean = true) {
+  const prompt = prompts.value.find((item) => item.id === promptId);
+  const previousVoted = prompt?.voted ?? false;
+  if (prompt) {
+    prompt.voted = nextVoted;
+  }
+
   $fetch(`/api/pages/${pageId.value}/votes/${promptId}`, {
     method: "POST",
-    body: { vote },
+    body: { vote: nextVoted },
   }).catch((err) => {
+    if (prompt) {
+      prompt.voted = previousVoted;
+    }
     toast.add({
       title: "Failed to vote to prompt",
       description: err.data?.message || err.message,
@@ -212,16 +208,6 @@ function copy(text: string) {
 const timerInterval = ref<NodeJS.Timeout>();
 const eventSource = ref<EventSource>();
 
-if (import.meta.client) {
-  watch(
-    () => currentPrompt.value?.id,
-    () => {
-      syncDisplayHtml();
-    },
-    { immediate: true },
-  );
-}
-
 onMounted(() => {
   eventSource.value = new EventSource(`/api/pages/${pageId.value}/sse`);
   eventSource.value.onmessage = (event) => {
@@ -231,14 +217,15 @@ onMounted(() => {
     }
 
     const { refresh, ...patch } = prompt;
-    const hasPatch = Object.keys(patch).some((key) => key !== "id");
     const index = prompts.value.findIndex((item) => item.id === prompt.id);
     if (index !== -1) {
       prompts.value[index] = Object.assign(prompts.value[index]!, patch);
-    } else if (hasPatch) {
+    } else if ("content" in patch) {
       prompts.value = [...prompts.value, patch].sort(
         (a: any, b: any) => a.id - b.id,
       );
+    } else {
+      refreshPrompts();
     }
 
     if (prompt.status === "approved" && page.value) {
@@ -246,7 +233,7 @@ onMounted(() => {
     }
 
     if (refresh && currentPrompt.value?.id === prompt.id) {
-      syncDisplayHtml();
+      refreshHtml();
     }
   };
   timerInterval.value = setInterval(() => {
@@ -398,12 +385,12 @@ onUnmounted(() => {
           <iframe
             v-if="mode === 'preview'"
             class="h-full w-full"
-            :srcdoc="displayHtml"
+            :srcdoc="html"
           ></iframe>
           <MonacoEditor
             v-else
             class="h-full"
-            :model-value="displayHtml"
+            :model-value="html"
             lang="html"
             :options="{
               readOnly: true,

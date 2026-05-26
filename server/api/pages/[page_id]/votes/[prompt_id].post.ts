@@ -36,7 +36,6 @@ export default defineEventHandler(async (event) => {
   await useStorage().setItem(`pages:${page_id}`, {
     id: promptId,
     voteCount: rows[0]?.voteCount ?? 0,
-    voted: Boolean(body.vote),
   });
 
   return result;
