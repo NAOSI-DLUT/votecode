@@ -29,7 +29,7 @@ The backend is organized around Nuxt server routes under `server/api`. Page rout
 
 The database schema is in `server/db/schema.ts`. The core entities are `users`, `pages`, `prompts`, and `votes`. `pages.latestPrompt` points to the approved branch head. `prompts.parent` links a prompt to the previous approved prompt. Each prompt stores its own `html`, `response`, and `status`. Do not hand-write migration SQL; edit the schema and run `pnpm nuxt db generate`.
 
-Prompt generation is centralized in `server/utils/generate.ts`. Prompt creation returns quickly and schedules generation in the background. Generation loads the prompt, reads the parent prompt HTML if any, streams model output through `xsai`, and exposes `read_html` and `replace_html` tools to the model. Each `replace_html` call immediately persists the full HTML to the prompt row and broadcasts `{ id, refresh: true }` through `pages:<pageId>`.
+Prompt generation is centralized in `server/utils/generate.ts`. Prompt creation returns quickly and schedules generation in the background. Generation loads the prompt, reads the parent prompt HTML if any, streams model output through `xsai`, and exposes `read_html`, `write_html`, and exact-text `replace_html` tools to the model. HTML write/replace calls immediately persist the full HTML to the prompt row and broadcast `{ id, refresh: true }` through `pages:<pageId>`.
 
 Realtime behavior uses Nuxt storage as the coordination layer. `pages:<pageId>` carries prompt-level updates such as vote counts, response text, status, and HTML refresh signals. The page SSE endpoint is `server/api/pages/[page_id]/sse.ts`; the HTML endpoint always returns the latest database `html` for a prompt.
 

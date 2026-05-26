@@ -10,7 +10,10 @@ export async function generate(pageId: string, promptId: number) {
   let responseText = "";
 
   const prompt = await db.query.prompts.findFirst({
-    where: and(eq(schema.prompts.pageId, pageId), eq(schema.prompts.id, promptId)),
+    where: and(
+      eq(schema.prompts.pageId, pageId),
+      eq(schema.prompts.id, promptId),
+    ),
   });
   if (!prompt) {
     throw createError({ statusCode: 404, statusMessage: "Prompt not found" });
@@ -33,7 +36,12 @@ export async function generate(pageId: string, promptId: number) {
   await db
     .update(schema.prompts)
     .set({ response: null, html: latestHtml })
-    .where(and(eq(schema.prompts.pageId, prompt.pageId), eq(schema.prompts.id, prompt.id)));
+    .where(
+      and(
+        eq(schema.prompts.pageId, prompt.pageId),
+        eq(schema.prompts.id, prompt.id),
+      ),
+    );
   await storage.setItem(`pages:${prompt.pageId}`, {
     id: prompt.id,
     response: null,
@@ -47,86 +55,120 @@ export async function generate(pageId: string, promptId: number) {
     execute: async () => latestHtml,
   });
 
+  const writeHtmlTool = rawTool<{
+    html: string;
+  }>({
+    name: "write_html",
+    description:
+      "Replace the entire HTML document and persist it. Use this when the current HTML is empty, when creating a page from scratch, or when a broad rewrite is simpler than an exact replacement.",
+    parameters: {
+      type: "object",
+      properties: {
+        html: { type: "string" },
+      },
+      required: ["html"],
+      additionalProperties: false,
+    },
+    execute: async ({ html }) => {
+      const step = `${Math.min(currentStep, maxSteps)}/${maxSteps}`;
+      const beforeHtml = latestHtml;
+      latestHtml = html || "";
+      await db
+        .update(schema.prompts)
+        .set({ html: latestHtml })
+        .where(
+          and(
+            eq(schema.prompts.pageId, prompt.pageId),
+            eq(schema.prompts.id, prompt.id),
+          ),
+        );
+      await storage.setItem(`pages:${prompt.pageId}`, {
+        id: prompt.id,
+        refresh: true,
+      });
+      console.info("[generate] write_html tool", {
+        pageId: prompt.pageId,
+        promptId: prompt.id,
+        step,
+        beforeLength: beforeHtml.length,
+        afterLength: latestHtml.length,
+        changed: latestHtml !== beforeHtml,
+        result: "changed",
+      });
+      return "changed";
+    },
+  });
+
   const replaceHtmlTool = rawTool<{
-    pattern: string;
-    replacement: string;
-    regex?: boolean;
-    flags?: string;
+    pattern?: string;
+    replacement?: string;
   }>({
     name: "replace_html",
-    description: "Replace HTML content by plain string or regex and persist the updated full HTML",
+    description:
+      "Replace exact text in the current HTML and persist it. No regex. Use read_html first, then provide an exact pattern and replacement. If the page is empty or a full rewrite is needed, use write_html instead.",
     parameters: {
       type: "object",
       properties: {
         pattern: { type: "string" },
         replacement: { type: "string" },
-        regex: { type: "boolean" },
-        flags: { type: "string" },
       },
       required: ["pattern", "replacement"],
       additionalProperties: false,
     },
-    execute: async ({ pattern, replacement, regex = false, flags = "g" }) => {
+    execute: async ({ pattern = "", replacement = "" }) => {
       const step = `${Math.min(currentStep, maxSteps)}/${maxSteps}`;
-      const mode = regex ? "regex" : "plain";
+      const beforeHtml = latestHtml;
+
       if (!pattern) {
-        console.error("[generate] replace_html failed", {
+        console.info("[generate] replace_html tool", {
           pageId: prompt.pageId,
           promptId: prompt.id,
           step,
-          mode,
-          error: "pattern is required",
+          beforeLength: beforeHtml.length,
+          afterLength: latestHtml.length,
+          changed: false,
+          result: "missing_pattern",
         });
-        throw createError({ statusCode: 400, statusMessage: "pattern is required" });
+        return "missing_pattern: HTML unchanged. replace_html requires an exact pattern. Use write_html to replace the full document.";
       }
 
-      const beforeHtml = latestHtml;
-      const beforeLength = beforeHtml.length;
-      if (regex) {
-        let regExp: RegExp;
-        try {
-          regExp = new RegExp(pattern, flags);
-        } catch {
-          console.error("[generate] replace_html failed", {
-            pageId: prompt.pageId,
-            promptId: prompt.id,
-            step,
-            mode,
-            flags,
-            error: "Invalid regex pattern or flags",
-          });
-          throw createError({
-            statusCode: 400,
-            statusMessage: "Invalid regex pattern or flags",
-          });
-        }
-        latestHtml = latestHtml.replace(regExp, replacement);
-      } else {
-        latestHtml = latestHtml.split(pattern).join(replacement);
+      if (!latestHtml.includes(pattern)) {
+        console.info("[generate] replace_html tool", {
+          pageId: prompt.pageId,
+          promptId: prompt.id,
+          step,
+          beforeLength: beforeHtml.length,
+          afterLength: latestHtml.length,
+          changed: false,
+          result: "target_not_found",
+        });
+        return "target_not_found: HTML unchanged. Call read_html to inspect current HTML, or use write_html to replace the full document.";
       }
-      const afterLength = latestHtml.length;
-      const changed = latestHtml !== beforeHtml;
 
+      latestHtml = latestHtml.split(pattern).join(replacement);
       await db
         .update(schema.prompts)
         .set({ html: latestHtml })
-        .where(and(eq(schema.prompts.pageId, prompt.pageId), eq(schema.prompts.id, prompt.id)));
+        .where(
+          and(
+            eq(schema.prompts.pageId, prompt.pageId),
+            eq(schema.prompts.id, prompt.id),
+          ),
+        );
       await storage.setItem(`pages:${prompt.pageId}`, {
         id: prompt.id,
         refresh: true,
       });
-      console.info("[generate] replace_html", {
+      console.info("[generate] replace_html tool", {
         pageId: prompt.pageId,
         promptId: prompt.id,
         step,
-        mode,
-        ...(regex ? { flags } : {}),
-        beforeLength,
-        afterLength,
-        changed,
-        result: changed ? "changed" : "unchanged",
+        beforeLength: beforeHtml.length,
+        afterLength: latestHtml.length,
+        changed: latestHtml !== beforeHtml,
+        result: "changed",
       });
-      return "ok";
+      return "changed";
     },
   });
 
@@ -139,7 +181,7 @@ export async function generate(pageId: string, promptId: number) {
         {
           role: "system",
           content:
-            "You are a web programming assistant. Use tools to read and edit HTML. Call read_html once before editing. Use replace_html for targeted edits; prefer regex with precise patterns when useful. Keep tool calls minimal. In final answer, return only your user-facing response text.",
+            "You are a web programming assistant. Use tools to read and edit HTML. Call read_html before editing. Use write_html when the current HTML is empty, when creating a page from scratch, or when making broad changes. Use replace_html only for exact text replacements; it requires both pattern and replacement and does not support regex. If replace_html returns missing_pattern or target_not_found, call read_html again or use write_html. Keep tool calls minimal. In final answer, return only your user-facing response text.",
         },
         { role: "user", content: prompt.content },
       ] as Message[],
@@ -147,7 +189,7 @@ export async function generate(pageId: string, promptId: number) {
       onStepFinish: () => {
         currentStep += 1;
       },
-      tools: [readHtmlTool, replaceHtmlTool],
+      tools: [readHtmlTool, writeHtmlTool, replaceHtmlTool],
     });
 
     for await (const event of result.fullStream as any) {
@@ -161,13 +203,21 @@ export async function generate(pageId: string, promptId: number) {
     }
 
     if (!responseText.trim()) {
-      throw createError({ statusCode: 500, statusMessage: "Model returned empty response" });
+      throw createError({
+        statusCode: 500,
+        statusMessage: "Model returned empty response",
+      });
     }
 
     await db
       .update(schema.prompts)
       .set({ response: responseText.trim(), html: latestHtml })
-      .where(and(eq(schema.prompts.pageId, prompt.pageId), eq(schema.prompts.id, prompt.id)));
+      .where(
+        and(
+          eq(schema.prompts.pageId, prompt.pageId),
+          eq(schema.prompts.id, prompt.id),
+        ),
+      );
 
     await storage.setItem(`pages:${prompt.pageId}`, {
       id: prompt.id,
@@ -196,7 +246,12 @@ export async function generate(pageId: string, promptId: number) {
     await db
       .update(schema.prompts)
       .set({ response, html: latestHtml })
-      .where(and(eq(schema.prompts.pageId, prompt.pageId), eq(schema.prompts.id, prompt.id)));
+      .where(
+        and(
+          eq(schema.prompts.pageId, prompt.pageId),
+          eq(schema.prompts.id, prompt.id),
+        ),
+      );
     await storage.setItem(`pages:${prompt.pageId}`, {
       id: prompt.id,
       response,
@@ -205,4 +260,3 @@ export async function generate(pageId: string, promptId: number) {
     throw error;
   }
 }
-

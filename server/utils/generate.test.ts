@@ -68,9 +68,11 @@ describe("generate utils", () => {
       expect(maxSteps).toBe(10);
 
       const readHtmlTool = tools.find((t: any) => t.name === "read_html");
+      const writeHtmlTool = tools.find((t: any) => t.name === "write_html");
       const replaceHtmlTool = tools.find((t: any) => t.name === "replace_html");
 
       expect(readHtmlTool).toBeTruthy();
+      expect(writeHtmlTool).toBeTruthy();
       expect(replaceHtmlTool).toBeTruthy();
 
       const fullStream = (async function* () {
@@ -80,7 +82,6 @@ describe("generate utils", () => {
         await replaceHtmlTool.execute({
           pattern: "<title>Old</title>",
           replacement: "<title>New</title>",
-          regex: false,
         });
 
         const after = await readHtmlTool.execute({});
