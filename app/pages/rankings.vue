@@ -3,7 +3,7 @@ import type { TableColumn } from "@nuxt/ui";
 
 type RankingResponse = {
   users: Array<{
-    id: number;
+    id: string;
     name: string;
     avatarUrl: string;
     htmlUrl: string;

@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
       ...promptColumns,
       user: schema.users,
       voteCount: count(schema.votes),
-      voted: sql<boolean>`bool_or(${schema.votes.userId} = ${user?.id ?? -1})`,
+      voted: sql<boolean>`bool_or(${schema.votes.userId} = ${user?.id ?? ""})`,
     })
     .from(schema.prompts)
     .where(eq(schema.prompts.pageId, page_id))

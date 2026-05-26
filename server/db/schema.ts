@@ -11,7 +11,7 @@ import {
 import { sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
-  id: integer().primaryKey(),
+  id: text().primaryKey(),
   name: text().notNull(),
   avatar_url: text().notNull(),
   html_url: text().notNull(),
@@ -36,7 +36,7 @@ export const prompts = pgTable(
     pageId: text("page_id")
       .references(() => pages.id)
       .notNull(),
-    userId: integer("user_id")
+    userId: text("user_id")
       .references(() => users.id)
       .notNull(),
     parent: integer("parent"),
@@ -62,7 +62,7 @@ export const votes = pgTable(
       .references(() => pages.id)
       .notNull(),
     promptId: integer("prompt_id").notNull(),
-    userId: integer("user_id")
+    userId: text("user_id")
       .references(() => users.id)
       .notNull(),
   },

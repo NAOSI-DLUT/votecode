@@ -5,7 +5,7 @@ export default defineOAuthGitHubEventHandler({
     await db
       .insert(schema.users)
       .values({
-        id: user.id,
+        id: user.login,
         name: user.name || user.login,
         avatar_url: user.avatar_url,
         html_url: user.html_url,
@@ -13,8 +13,8 @@ export default defineOAuthGitHubEventHandler({
       .onConflictDoNothing();
     await setUserSession(event, {
       user: {
-        id: user.id,
-        name: user.name,
+        id: user.login,
+        name: user.name || user.login,
         avatar_url: user.avatar_url,
         html_url: user.html_url,
       },

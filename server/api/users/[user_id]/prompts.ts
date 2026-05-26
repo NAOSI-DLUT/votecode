@@ -10,16 +10,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const userId = Number(user_id);
-  if (!Number.isInteger(userId)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Invalid user_id",
-    });
-  }
-
   const user = await db.query.users.findFirst({
-    where: eq(schema.users.id, userId),
+    where: eq(schema.users.id, user_id),
   });
   if (!user) {
     throw createError({
@@ -31,6 +23,6 @@ export default defineEventHandler(async (event) => {
   return await db
     .select()
     .from(schema.prompts)
-    .where(eq(schema.prompts.userId, userId))
+    .where(eq(schema.prompts.userId, user_id))
     .orderBy(desc(schema.prompts.createdAt));
 });

@@ -8,7 +8,7 @@ CREATE TABLE "pages" (
 CREATE TABLE "prompts" (
 	"id" integer NOT NULL,
 	"page_id" text NOT NULL,
-	"user_id" integer NOT NULL,
+	"user_id" text NOT NULL,
 	"parent" integer,
 	"content" text NOT NULL,
 	"response" text,
@@ -19,7 +19,7 @@ CREATE TABLE "prompts" (
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
-	"id" integer PRIMARY KEY NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"avatar_url" text NOT NULL,
 	"html_url" text NOT NULL
@@ -28,7 +28,7 @@ CREATE TABLE "users" (
 CREATE TABLE "votes" (
 	"page_id" text NOT NULL,
 	"prompt_id" integer NOT NULL,
-	"user_id" integer NOT NULL,
+	"user_id" text NOT NULL,
 	CONSTRAINT "votes_page_id_prompt_id_user_id_pk" PRIMARY KEY("page_id","prompt_id","user_id")
 );
 --> statement-breakpoint
