@@ -70,7 +70,7 @@ function createPage() {
         variant="naked"
         icon="i-lucide-plus"
         :title="pages?.length ? 'Or create another page…' : 'No pages yet'"
-        description="Or create another page…"
+        :description="loggedIn ? '' : 'Please log in to create a page'"
       >
         <template #actions>
           <UInput v-model="newPageId" :disabled="!loggedIn" />
