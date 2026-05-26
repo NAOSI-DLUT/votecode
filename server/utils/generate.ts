@@ -15,6 +15,10 @@ export async function generate(promptId: number) {
   if (!prompt) {
     throw createError({ statusCode: 404, statusMessage: "Prompt not found" });
   }
+  console.info("[generate] start", {
+    pageId: prompt.pageId,
+    promptId: prompt.id,
+  });
 
   const parent = prompt.parent
     ? await db.query.prompts.findFirst({ where: eq(schema.prompts.id, prompt.parent) })
