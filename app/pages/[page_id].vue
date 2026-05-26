@@ -1,8 +1,15 @@
 <script setup lang="ts">
+import { createHighlighterCore } from "shiki/core";
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+import htmlLang from "shiki/langs/html.mjs";
+import githubDark from "shiki/themes/github-dark.mjs";
+import githubLight from "shiki/themes/github-light.mjs";
+
 definePageMeta({ layout: false });
 
 const route = useRoute();
 const toast = useToast();
+const colorMode = useColorMode();
 const timer = ref(0);
 const { user, clear } = useUserSession();
 
@@ -68,6 +75,17 @@ const { data: html, refresh: refreshHtml } = await useAsyncData<string>(
     default: () => "",
     watch: [currentPromptId],
   },
+);
+const highlighter = await createHighlighterCore({
+  themes: [githubLight, githubDark],
+  langs: [htmlLang],
+  engine: createJavaScriptRegexEngine(),
+});
+const highlightedHtml = computed(() =>
+  highlighter.codeToHtml(html.value || "", {
+    lang: "html",
+    theme: colorMode.value === "dark" ? "github-dark" : "github-light",
+  }),
 );
 const isPreviewingPrompt = (promptId: number) =>
   selectedPromptId.value === null
@@ -387,15 +405,10 @@ onUnmounted(() => {
             class="h-full w-full"
             :srcdoc="html"
           ></iframe>
-          <MonacoEditor
+          <div
             v-else
-            class="h-full"
-            :model-value="html"
-            lang="html"
-            :options="{
-              readOnly: true,
-              theme: $colorMode.value === 'dark' ? 'vs-dark' : 'vs',
-            }"
+            class="h-full overflow-auto [&_pre]:min-h-full [&_pre]:p-4 [&_pre]:font-mono [&_pre]:text-sm [&_pre]:leading-6 [&_pre]:whitespace-pre-wrap [&_pre]:break-words"
+            v-html="highlightedHtml"
           />
         </template>
       </UDashboardPanel>

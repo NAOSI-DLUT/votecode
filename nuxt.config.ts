@@ -6,7 +6,6 @@ export default defineNuxtConfig({
     "@nuxthub/core",
     "@nuxt/ui",
     "nuxt-auth-utils",
-    "nuxt-monaco-editor",
     "@nuxtjs/mdc",
   ],
   hub: {
