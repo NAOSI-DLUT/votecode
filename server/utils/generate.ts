@@ -18,10 +18,7 @@ export async function generate(pageId: string, promptId: number) {
   if (!prompt) {
     throw createError({ statusCode: 404, statusMessage: "Prompt not found" });
   }
-  console.info("[generate] start", {
-    pageId: prompt.pageId,
-    promptId: prompt.id,
-  });
+  console.info(`[generate] start pageId=${prompt.pageId} promptId=${prompt.id}`);
 
   const parent = prompt.parent
     ? await db.query.prompts.findFirst({
@@ -86,15 +83,9 @@ export async function generate(pageId: string, promptId: number) {
         id: prompt.id,
         refresh: true,
       });
-      console.info("[generate] write_html tool", {
-        pageId: prompt.pageId,
-        promptId: prompt.id,
-        step,
-        beforeLength: beforeHtml.length,
-        afterLength: latestHtml.length,
-        changed: latestHtml !== beforeHtml,
-        result: "changed",
-      });
+      console.info(
+        `[generate] write_html tool pageId=${prompt.pageId} promptId=${prompt.id} step=${step} beforeLength=${beforeHtml.length} afterLength=${latestHtml.length} changed=${latestHtml !== beforeHtml} result=changed`,
+      );
       return "changed";
     },
   });
@@ -120,28 +111,16 @@ export async function generate(pageId: string, promptId: number) {
       const beforeHtml = latestHtml;
 
       if (!pattern) {
-        console.info("[generate] replace_html tool", {
-          pageId: prompt.pageId,
-          promptId: prompt.id,
-          step,
-          beforeLength: beforeHtml.length,
-          afterLength: latestHtml.length,
-          changed: false,
-          result: "missing_pattern",
-        });
+        console.info(
+          `[generate] replace_html tool pageId=${prompt.pageId} promptId=${prompt.id} step=${step} beforeLength=${beforeHtml.length} afterLength=${latestHtml.length} changed=false result=missing_pattern`,
+        );
         return "missing_pattern: HTML unchanged. replace_html requires an exact pattern. Use write_html to replace the full document.";
       }
 
       if (!latestHtml.includes(pattern)) {
-        console.info("[generate] replace_html tool", {
-          pageId: prompt.pageId,
-          promptId: prompt.id,
-          step,
-          beforeLength: beforeHtml.length,
-          afterLength: latestHtml.length,
-          changed: false,
-          result: "target_not_found",
-        });
+        console.info(
+          `[generate] replace_html tool pageId=${prompt.pageId} promptId=${prompt.id} step=${step} beforeLength=${beforeHtml.length} afterLength=${latestHtml.length} changed=false result=target_not_found`,
+        );
         return "target_not_found: HTML unchanged. Call read_html to inspect current HTML, or use write_html to replace the full document.";
       }
 
@@ -159,15 +138,9 @@ export async function generate(pageId: string, promptId: number) {
         id: prompt.id,
         refresh: true,
       });
-      console.info("[generate] replace_html tool", {
-        pageId: prompt.pageId,
-        promptId: prompt.id,
-        step,
-        beforeLength: beforeHtml.length,
-        afterLength: latestHtml.length,
-        changed: latestHtml !== beforeHtml,
-        result: "changed",
-      });
+      console.info(
+        `[generate] replace_html tool pageId=${prompt.pageId} promptId=${prompt.id} step=${step} beforeLength=${beforeHtml.length} afterLength=${latestHtml.length} changed=${latestHtml !== beforeHtml} result=changed`,
+      );
       return "changed";
     },
   });
@@ -181,7 +154,7 @@ export async function generate(pageId: string, promptId: number) {
         {
           role: "system",
           content:
-            "You are a web programming assistant. Use tools to read and edit HTML. Call read_html before editing. Use write_html when the current HTML is empty, when creating a page from scratch, or when making broad changes. Use replace_html only for exact text replacements; it requires both pattern and replacement and does not support regex. If replace_html returns missing_pattern or target_not_found, call read_html again or use write_html. Keep tool calls minimal. In final answer, return only your user-facing response text.",
+            "You are votecode, a collaborative web programming assistant. Before any tool call, first send a brief one-sentence progress update to the user. Then use tools to read and edit HTML. Call read_html before editing. Use write_html when the current HTML is empty, when creating a page from scratch, or when making broad changes. Use replace_html only for exact text replacements; it requires both pattern and replacement and does not support regex. If replace_html returns missing_pattern or target_not_found, call read_html again or use write_html. Keep tool calls minimal. In final answer, return only your user-facing response text.",
         },
         { role: "user", content: prompt.content },
       ] as Message[],
@@ -224,25 +197,18 @@ export async function generate(pageId: string, promptId: number) {
       response: responseText.trim(),
     });
 
-    console.info("[generate] success", {
-      pageId: prompt.pageId,
-      promptId: prompt.id,
-      responseLength: responseText.trim().length,
-      finalHtmlLength: latestHtml.length,
-    });
+    console.info(
+      `[generate] success pageId=${prompt.pageId} promptId=${prompt.id} responseLength=${responseText.trim().length} finalHtmlLength=${latestHtml.length}`,
+    );
   } catch (error: any) {
     const response =
       responseText.trim() ||
       error?.statusMessage ||
       error?.message ||
       "Generation failed";
-    console.error("[generate] failed", {
-      pageId: prompt.pageId,
-      promptId: prompt.id,
-      responseLength: responseText.trim().length,
-      finalHtmlLength: latestHtml.length,
-      error: error?.statusMessage || error?.message || "Generation failed",
-    });
+    console.error(
+      `[generate] failed pageId=${prompt.pageId} promptId=${prompt.id} responseLength=${responseText.trim().length} finalHtmlLength=${latestHtml.length} error=${error?.statusMessage || error?.message || "Generation failed"}`,
+    );
     await db
       .update(schema.prompts)
       .set({ response, html: latestHtml })
