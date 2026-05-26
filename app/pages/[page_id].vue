@@ -84,7 +84,7 @@ const highlightedHtml = computed(() =>
 const isPreviewingPrompt = (promptId: number) => currentPromptId.value === promptId;
 const promptPlaceholder = computed(() => {
   if (!user.value) return "Please sign in to continue…";
-  if (hasPrompt.value) return "This page already has a prompt";
+  if (hasPrompt.value) return "You have already submitted a prompt this round";
   return "";
 });
 
