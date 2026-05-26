@@ -53,8 +53,6 @@ const currentPromptTitle = computed(() => {
   return `#${currentPrompt.value.id} by @${currentPrompt.value.user?.name?.replace(/^@/, "") || "unknown"}`;
 });
 const displayHtml = ref("");
-const htmlController = ref<AbortController | null>(null);
-const htmlRequestId = ref(0);
 const isPreviewingPrompt = (promptId: number) =>
   selectedPromptId.value === null
     ? page.value?.latestPrompt === promptId
@@ -65,11 +63,7 @@ const promptPlaceholder = computed(() => {
   return "";
 });
 
-if (
-  import.meta.server &&
-  currentPrompt.value &&
-  !currentPrompt.value.generating
-) {
+if (import.meta.server && currentPrompt.value) {
   displayHtml.value = await $fetch<string>(
     `/api/pages/${pageId.value}/html/${currentPrompt.value.id}`,
   );
@@ -77,65 +71,19 @@ if (
 
 async function syncDisplayHtml() {
   const prompt = currentPrompt.value;
-  htmlController.value?.abort();
   if (!prompt) {
     displayHtml.value = "";
     return;
   }
 
-  const requestId = ++htmlRequestId.value;
-  const controller = new AbortController();
-  htmlController.value = controller;
-
   try {
-    const response = await fetch(
+    const html = await $fetch<string>(
       `/api/pages/${pageId.value}/html/${prompt.id}`,
-      {
-        signal: controller.signal,
-      },
     );
-    if (!response.ok) {
-      throw new Error("Failed to load HTML");
-    }
-
-    if (!prompt.generating) {
-      const html = await response.text();
-      if (htmlRequestId.value === requestId) {
-        displayHtml.value = html;
-      }
-      return;
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) return;
-
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const chunks = buffer.split("\n\n");
-      buffer = chunks.pop() ?? "";
-
-      for (const chunk of chunks) {
-        const html = chunk
-          .split("\n")
-          .filter((line) => line.startsWith("data:"))
-          .map((line) =>
-            line.startsWith("data: ") ? line.slice(6) : line.slice(5),
-          )
-          .join("\n");
-        if (htmlRequestId.value === requestId) {
-          displayHtml.value = html;
-        }
-      }
+    if (currentPrompt.value?.id === prompt.id) {
+      displayHtml.value = html;
     }
   } catch (err: any) {
-    if (err.name === "AbortError") return;
-
     toast.add({
       title: "Failed to load HTML",
       description: err.data?.message || err.message,
@@ -266,7 +214,7 @@ const eventSource = ref<EventSource>();
 
 if (import.meta.client) {
   watch(
-    () => [currentPrompt.value?.id, currentPrompt.value?.generating],
+    () => currentPrompt.value?.id,
     () => {
       syncDisplayHtml();
     },
@@ -275,24 +223,30 @@ if (import.meta.client) {
 }
 
 onMounted(() => {
-  eventSource.value = new EventSource(`/api/pages/${pageId.value}/prompts/sse`);
+  eventSource.value = new EventSource(`/api/pages/${pageId.value}/sse`);
   eventSource.value.onmessage = (event) => {
     const prompt = JSON.parse(event.data) as any;
     if (!prompt?.id) {
       return;
     }
 
+    const { refresh, ...patch } = prompt;
+    const hasPatch = Object.keys(patch).some((key) => key !== "id");
     const index = prompts.value.findIndex((item) => item.id === prompt.id);
     if (index !== -1) {
-      prompts.value[index] = Object.assign(prompts.value[index]!, prompt);
-    } else {
-      prompts.value = [...prompts.value, prompt].sort(
+      prompts.value[index] = Object.assign(prompts.value[index]!, patch);
+    } else if (hasPatch) {
+      prompts.value = [...prompts.value, patch].sort(
         (a: any, b: any) => a.id - b.id,
       );
     }
 
     if (prompt.status === "approved" && page.value) {
       page.value.latestPrompt = prompt.id;
+    }
+
+    if (refresh && currentPrompt.value?.id === prompt.id) {
+      syncDisplayHtml();
     }
   };
   timerInterval.value = setInterval(() => {
@@ -304,7 +258,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  htmlController.value?.abort();
   clearInterval(timerInterval.value);
   eventSource.value?.close();
 });

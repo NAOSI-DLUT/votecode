@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 
 export default defineEventHandler(async (event) => {
   const { page_id } = getRouterParams(event);
-  const storage = useStorage();
   if (!page_id) {
     throw createError({
       statusCode: 400,
@@ -21,14 +20,18 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  const storage = useStorage();
   const promptKey = `pages:${page_id}`;
   const eventStream = createEventStream(event);
-  const unwatch = await storage.watch(async (event, key) => {
+  const unwatch = await storage.watch(async (_watchEvent, key) => {
     if (key !== promptKey) {
       return;
     }
 
-    eventStream.push(JSON.stringify(storage.getItem(promptKey)));
+    const payload = await storage.getItem(promptKey);
+    if (payload) {
+      await eventStream.push(JSON.stringify(payload));
+    }
   });
 
   eventStream.onClosed(unwatch);

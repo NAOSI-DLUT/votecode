@@ -94,24 +94,28 @@ describe("generate utils", () => {
     const { generate } = await import("./generate");
     await generate(10);
 
-    expect(mockDbUpdate).toHaveBeenCalledTimes(2);
+    expect(mockDbUpdate).toHaveBeenCalledTimes(3);
     expect(mockDbUpdateSet).toHaveBeenCalledWith({
-      generating: true,
       response: null,
+      html: "<html>\n<title>Old</title>\n<body>Hi</body>\n</html>",
+    });
+    expect(mockDbUpdateSet).toHaveBeenCalledWith({
+      html: "<html>\n<title>New</title>\n<body>Hi</body>\n</html>",
     });
     expect(mockDbUpdateSet).toHaveBeenCalledWith({
       response: "updated done",
       html: "<html>\n<title>New</title>\n<body>Hi</body>\n</html>",
-      generating: false,
     });
 
-    expect(mockSetItem).toHaveBeenCalledWith("html:10", "<html>\n<title>Old</title>\n<body>Hi</body>\n</html>");
     expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
       id: 10,
-      generating: true,
       response: null,
+      refresh: true,
     });
-    expect(mockSetItem).toHaveBeenCalledWith("html:10", "<html>\n<title>New</title>\n<body>Hi</body>\n</html>");
+    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
+      id: 10,
+      refresh: true,
+    });
     expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
       id: 10,
       response: "updated ",
@@ -119,11 +123,6 @@ describe("generate utils", () => {
     expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
       id: 10,
       response: "updated done",
-    });
-    expect(mockSetItem).toHaveBeenCalledWith("pages:page-1", {
-      id: 10,
-      response: "updated done",
-      generating: false,
     });
   });
 });
