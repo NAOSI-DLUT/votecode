@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { generate } from "../../../../utils/generate";
 
 export default defineEventHandler(async (event) => {
@@ -24,9 +24,16 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  const nextIdRows = await db
+    .select({ id: sql<number>`coalesce(max(${schema.prompts.id}), 0) + 1` })
+    .from(schema.prompts)
+    .where(eq(schema.prompts.pageId, page_id));
+  const promptId = Number(nextIdRows[0]?.id ?? 1);
+
   const inserted = await db
     .insert(schema.prompts)
     .values({
+      id: promptId,
       pageId: page_id,
       userId: user.id,
       parent: page.latestPrompt,
@@ -56,6 +63,6 @@ export default defineEventHandler(async (event) => {
     voteCount: 0,
     voted: false,
   });
-  event.waitUntil?.(generate(prompt.id));
+  event.waitUntil?.(generate(page_id, prompt.id));
   return { ok: true, promptId: prompt.id };
 });

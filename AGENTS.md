@@ -58,9 +58,9 @@ Voting selection is handled by `server/tasks/pickPrompts.ts`, scheduled every mi
 ## Database
 
 - The database schema lives in `server/db/schema.ts`.
-- Never hand-write SQL migration files under `server/db/migrations/**`.
+- Never hand-write or manually edit SQL migration files under `server/db/migrations/**`; they are generated artifacts.
 - Make schema changes only in `server/db/schema.ts`.
-- Generate migration artifacts with `pnpm nuxt db generate`.
+- Generate or update migration artifacts with `pnpm nuxt db generate`.
 - Prompt status is `pending` / `approved` / `rejected`.
 - For prompt branching, keep in mind:
 

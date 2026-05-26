@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { asc, count, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, asc, count, eq, getTableColumns, sql } from "drizzle-orm";
 
 const { html: _html, ...promptColumns } = getTableColumns(schema.prompts);
 
@@ -24,6 +24,12 @@ export default defineEventHandler(async (event) => {
     .where(eq(schema.prompts.pageId, page_id))
     .orderBy(asc(schema.prompts.id))
     .leftJoin(schema.users, eq(schema.prompts.userId, schema.users.id))
-    .leftJoin(schema.votes, eq(schema.prompts.id, schema.votes.promptId))
-    .groupBy(schema.prompts.id, schema.users.id);
+    .leftJoin(
+      schema.votes,
+      and(
+        eq(schema.prompts.pageId, schema.votes.pageId),
+        eq(schema.prompts.id, schema.votes.promptId),
+      ),
+    )
+    .groupBy(schema.prompts.pageId, schema.prompts.id, schema.users.id);
 });

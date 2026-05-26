@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1779605238443,
-      "tag": "0000_medical_paper_doll",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1779609947812,
-      "tag": "0001_married_stardust",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1779717057547,
-      "tag": "0002_real_shaman",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1779761982591,
-      "tag": "0003_outgoing_the_fallen",
+      "when": 1779782172736,
+      "tag": "0000_slimy_thunderbolt_ross",
       "breakpoints": true
     }
   ]

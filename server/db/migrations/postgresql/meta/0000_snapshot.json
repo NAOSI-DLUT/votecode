@@ -1,5 +1,5 @@
 {
-  "id": "237eca9c-4e4b-4d83-9652-df8e5d33da96",
+  "id": "512e0e3c-dfda-4eb6-bc49-7c793ece563a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -41,8 +41,8 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
-          "primaryKey": true,
+          "type": "integer",
+          "primaryKey": false,
           "notNull": true
         },
         "page_id": {
@@ -82,6 +82,14 @@
           "notNull": true,
           "default": "''"
         },
+        "status": {
+          "name": "status",
+          "type": "prompt_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -110,6 +118,12 @@
           "name": "parent_idx",
           "columns": [
             {
+              "expression": "page_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "parent",
               "isExpression": false,
               "asc": true,
@@ -117,6 +131,33 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "prompts_parent_user_unique_idx": {
+          "name": "prompts_parent_user_unique_idx",
+          "columns": [
+            {
+              "expression": "page_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"parent\", -1)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -148,22 +189,17 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "prompts_parent_prompts_id_fk": {
-          "name": "prompts_parent_prompts_id_fk",
-          "tableFrom": "prompts",
-          "tableTo": "prompts",
-          "columnsFrom": [
-            "parent"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "prompts_page_id_id_pk": {
+          "name": "prompts_page_id_id_pk",
+          "columns": [
+            "page_id",
+            "id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -210,6 +246,12 @@
       "name": "votes",
       "schema": "",
       "columns": {
+        "page_id": {
+          "name": "page_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "prompt_id": {
           "name": "prompt_id",
           "type": "integer",
@@ -225,12 +267,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "votes_prompt_id_prompts_id_fk": {
-          "name": "votes_prompt_id_prompts_id_fk",
+        "votes_page_id_pages_id_fk": {
+          "name": "votes_page_id_pages_id_fk",
           "tableFrom": "votes",
-          "tableTo": "prompts",
+          "tableTo": "pages",
           "columnsFrom": [
-            "prompt_id"
+            "page_id"
           ],
           "columnsTo": [
             "id"
@@ -253,9 +295,10 @@
         }
       },
       "compositePrimaryKeys": {
-        "votes_prompt_id_user_id_pk": {
-          "name": "votes_prompt_id_user_id_pk",
+        "votes_page_id_prompt_id_user_id_pk": {
+          "name": "votes_page_id_prompt_id_user_id_pk",
           "columns": [
+            "page_id",
             "prompt_id",
             "user_id"
           ]
@@ -267,7 +310,17 @@
       "isRLSEnabled": false
     }
   },
-  "enums": {},
+  "enums": {
+    "public.prompt_status": {
+      "name": "prompt_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "approved",
+        "rejected"
+      ]
+    }
+  },
   "schemas": {},
   "sequences": {},
   "roles": {},

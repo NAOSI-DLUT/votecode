@@ -46,18 +46,12 @@ const hasPrompt = computed(() =>
     (prompt) => prompt.parent === (page.value?.latestPrompt ?? null),
   ),
 );
-const selectedPrompt = computed(() =>
-  prompts.value.find((prompt) => prompt.id === selectedPromptId.value),
-);
-const latestPrompt = computed(() =>
-  page.value?.latestPrompt == null
+const currentPrompt = computed(() => {
+  const promptId = selectedPromptId.value ?? page.value?.latestPrompt;
+  return promptId == null
     ? null
-    : (prompts.value.find((prompt) => prompt.id === page.value?.latestPrompt) ??
-      null),
-);
-const currentPrompt = computed(
-  () => selectedPrompt.value ?? latestPrompt.value,
-);
+    : (prompts.value.find((prompt) => prompt.id === promptId) ?? null);
+});
 const currentPromptTitle = computed(() => {
   if (!currentPrompt.value) return "";
   return `#${currentPrompt.value.id} by @${currentPrompt.value.user?.name?.replace(/^@/, "") || "unknown"}`;
@@ -87,10 +81,7 @@ const highlightedHtml = computed(() =>
     theme: colorMode.value === "dark" ? "github-dark" : "github-light",
   }),
 );
-const isPreviewingPrompt = (promptId: number) =>
-  selectedPromptId.value === null
-    ? page.value?.latestPrompt === promptId
-    : selectedPromptId.value === promptId;
+const isPreviewingPrompt = (promptId: number) => currentPromptId.value === promptId;
 const promptPlaceholder = computed(() => {
   if (!user.value) return "Please sign in to continue…";
   if (hasPrompt.value) return "This page already has a prompt.";
@@ -181,11 +172,12 @@ const messages = computed<any[]>(() => {
 
 function submitPrompt() {
   if (!newPrompt.value.trim() || !user.value || hasPrompt.value) return;
-  $fetch(`/api/pages/${pageId.value}/prompts`, {
+  $fetch<{ promptId: number }>(`/api/pages/${pageId.value}/prompts`, {
     method: "POST",
     body: { content: newPrompt.value },
   })
-    .then(() => {
+    .then((result) => {
+      selectedPromptId.value = result.promptId;
       newPrompt.value = "";
     })
     .catch((err) => {
@@ -224,6 +216,7 @@ function copy(text: string) {
 }
 
 const timerInterval = ref<NodeJS.Timeout>();
+const latestPromptTimeout = ref<ReturnType<typeof setTimeout>>();
 const eventSource = ref<EventSource>();
 
 onMounted(() => {
@@ -246,8 +239,14 @@ onMounted(() => {
       refreshPrompts();
     }
 
-    if (prompt.status === "approved" && page.value) {
-      page.value.latestPrompt = prompt.id;
+    if (prompt.status === "approved") {
+      clearTimeout(latestPromptTimeout.value);
+      latestPromptTimeout.value = setTimeout(() => {
+        if (!page.value) return;
+        page.value.latestPrompt = prompt.id;
+        selectedPromptId.value = null;
+        refreshPrompts();
+      }, 1000);
     }
 
     if (refresh && currentPrompt.value?.id === prompt.id) {
@@ -264,6 +263,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   clearInterval(timerInterval.value);
+  clearTimeout(latestPromptTimeout.value);
   eventSource.value?.close();
 });
 </script>

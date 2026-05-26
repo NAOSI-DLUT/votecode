@@ -1,16 +1,16 @@
 import { db, schema } from "@nuxthub/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Message } from "xsai";
 import { rawTool, streamText } from "xsai";
 
-export async function generate(promptId: number) {
+export async function generate(pageId: string, promptId: number) {
   const storage = useStorage();
   const maxSteps = 10;
   let currentStep = 1;
   let responseText = "";
 
   const prompt = await db.query.prompts.findFirst({
-    where: eq(schema.prompts.id, promptId),
+    where: and(eq(schema.prompts.pageId, pageId), eq(schema.prompts.id, promptId)),
   });
   if (!prompt) {
     throw createError({ statusCode: 404, statusMessage: "Prompt not found" });
@@ -21,14 +21,19 @@ export async function generate(promptId: number) {
   });
 
   const parent = prompt.parent
-    ? await db.query.prompts.findFirst({ where: eq(schema.prompts.id, prompt.parent) })
+    ? await db.query.prompts.findFirst({
+        where: and(
+          eq(schema.prompts.pageId, prompt.pageId),
+          eq(schema.prompts.id, prompt.parent),
+        ),
+      })
     : null;
   let latestHtml = prompt.html || parent?.html || "";
 
   await db
     .update(schema.prompts)
     .set({ response: null, html: latestHtml })
-    .where(eq(schema.prompts.id, prompt.id));
+    .where(and(eq(schema.prompts.pageId, prompt.pageId), eq(schema.prompts.id, prompt.id)));
   await storage.setItem(`pages:${prompt.pageId}`, {
     id: prompt.id,
     response: null,
@@ -105,7 +110,7 @@ export async function generate(promptId: number) {
       await db
         .update(schema.prompts)
         .set({ html: latestHtml })
-        .where(eq(schema.prompts.id, prompt.id));
+        .where(and(eq(schema.prompts.pageId, prompt.pageId), eq(schema.prompts.id, prompt.id)));
       await storage.setItem(`pages:${prompt.pageId}`, {
         id: prompt.id,
         refresh: true,
@@ -162,7 +167,7 @@ export async function generate(promptId: number) {
     await db
       .update(schema.prompts)
       .set({ response: responseText.trim(), html: latestHtml })
-      .where(eq(schema.prompts.id, prompt.id));
+      .where(and(eq(schema.prompts.pageId, prompt.pageId), eq(schema.prompts.id, prompt.id)));
 
     await storage.setItem(`pages:${prompt.pageId}`, {
       id: prompt.id,
@@ -191,7 +196,7 @@ export async function generate(promptId: number) {
     await db
       .update(schema.prompts)
       .set({ response, html: latestHtml })
-      .where(eq(schema.prompts.id, prompt.id));
+      .where(and(eq(schema.prompts.pageId, prompt.pageId), eq(schema.prompts.id, prompt.id)));
     await storage.setItem(`pages:${prompt.pageId}`, {
       id: prompt.id,
       response,

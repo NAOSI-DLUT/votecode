@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 
 export default defineEventHandler(async () => {
   const users = await db
@@ -12,7 +12,13 @@ export default defineEventHandler(async () => {
     })
     .from(schema.users)
     .leftJoin(schema.prompts, eq(schema.prompts.userId, schema.users.id))
-    .leftJoin(schema.votes, eq(schema.votes.promptId, schema.prompts.id))
+    .leftJoin(
+      schema.votes,
+      and(
+        eq(schema.prompts.pageId, schema.votes.pageId),
+        eq(schema.prompts.id, schema.votes.promptId),
+      ),
+    )
     .groupBy(
       schema.users.id,
       schema.users.name,
@@ -28,7 +34,13 @@ export default defineEventHandler(async () => {
     })
     .from(schema.pages)
     .leftJoin(schema.prompts, eq(schema.prompts.pageId, schema.pages.id))
-    .leftJoin(schema.votes, eq(schema.votes.promptId, schema.prompts.id))
+    .leftJoin(
+      schema.votes,
+      and(
+        eq(schema.prompts.pageId, schema.votes.pageId),
+        eq(schema.prompts.id, schema.votes.promptId),
+      ),
+    )
     .groupBy(schema.pages.id)
     .orderBy(desc(count(schema.votes)));
 

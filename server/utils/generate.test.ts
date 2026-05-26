@@ -16,6 +16,7 @@ vi.mock("xsai", () => ({
 }));
 
 vi.mock("drizzle-orm", () => ({
+  and: vi.fn((...conditions: any[]) => ({ type: "and", conditions })),
   eq: vi.fn((a: any, b: any) => ({ type: "eq", a, b })),
 }));
 
@@ -23,6 +24,7 @@ vi.mock("@nuxthub/db", () => {
   const schema = {
     prompts: {
       id: "prompts.id",
+      pageId: "prompts.pageId",
     },
   };
   const db = {
@@ -92,7 +94,7 @@ describe("generate utils", () => {
     });
 
     const { generate } = await import("./generate");
-    await generate(10);
+    await generate("page-1", 10);
 
     expect(mockDbUpdate).toHaveBeenCalledTimes(3);
     expect(mockDbUpdateSet).toHaveBeenCalledWith({

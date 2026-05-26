@@ -13,11 +13,21 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event);
   const body = await readBody(event);
   const promptId = Number(prompt_id);
+  const prompt = await db.query.prompts.findFirst({
+    where: and(eq(schema.prompts.pageId, page_id), eq(schema.prompts.id, promptId)),
+  });
+  if (!prompt) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: "Prompt not found",
+    });
+  }
 
   const result = body.vote
     ? await db
         .insert(schema.votes)
         .values({
+          pageId: page_id,
           promptId,
           userId: user.id,
         })
@@ -25,13 +35,17 @@ export default defineEventHandler(async (event) => {
     : await db
         .delete(schema.votes)
         .where(
-          and(eq(schema.votes.promptId, promptId), eq(schema.votes.userId, user.id)),
+          and(
+            eq(schema.votes.pageId, page_id),
+            eq(schema.votes.promptId, promptId),
+            eq(schema.votes.userId, user.id),
+          ),
         );
 
   const rows = await db
     .select({ voteCount: count(schema.votes) })
     .from(schema.votes)
-    .where(eq(schema.votes.promptId, promptId));
+    .where(and(eq(schema.votes.pageId, page_id), eq(schema.votes.promptId, promptId)));
 
   await useStorage().setItem(`pages:${page_id}`, {
     id: promptId,

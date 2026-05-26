@@ -1,5 +1,5 @@
 import { db, schema } from "@nuxthub/db";
-import { count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 
 type CandidatePrompt = {
   id: number;
@@ -20,13 +20,22 @@ async function pickNextPromptForPage(pageId: string) {
       voteCount: count(schema.votes),
     })
     .from(schema.prompts)
-    .leftJoin(schema.votes, eq(schema.prompts.id, schema.votes.promptId))
-    .where(
-      page.latestPrompt === null
-        ? isNull(schema.prompts.parent)
-        : eq(schema.prompts.parent, page.latestPrompt),
+    .leftJoin(
+      schema.votes,
+      and(
+        eq(schema.prompts.pageId, schema.votes.pageId),
+        eq(schema.prompts.id, schema.votes.promptId),
+      ),
     )
-    .groupBy(schema.prompts.id)
+    .where(
+      and(
+        eq(schema.prompts.pageId, pageId),
+        page.latestPrompt === null
+          ? isNull(schema.prompts.parent)
+          : eq(schema.prompts.parent, page.latestPrompt),
+      ),
+    )
+    .groupBy(schema.prompts.pageId, schema.prompts.id)
     .orderBy(desc(count(schema.votes)), desc(schema.prompts.id))
     .limit(1);
 
@@ -59,24 +68,32 @@ export default defineTask({
         .select({ id: schema.prompts.id })
         .from(schema.prompts)
         .where(
-          current.latestPrompt === null
-            ? isNull(schema.prompts.parent)
-            : eq(schema.prompts.parent, current.latestPrompt),
+          and(
+            eq(schema.prompts.pageId, page.id),
+            current.latestPrompt === null
+              ? isNull(schema.prompts.parent)
+              : eq(schema.prompts.parent, current.latestPrompt),
+          ),
         );
 
       await db
         .update(schema.prompts)
         .set({ status: "rejected" })
         .where(
-          current.latestPrompt === null
-            ? isNull(schema.prompts.parent)
-            : eq(schema.prompts.parent, current.latestPrompt),
+          and(
+            eq(schema.prompts.pageId, page.id),
+            current.latestPrompt === null
+              ? isNull(schema.prompts.parent)
+              : eq(schema.prompts.parent, current.latestPrompt),
+          ),
         );
 
       await db
         .update(schema.prompts)
         .set({ status: "approved" })
-        .where(eq(schema.prompts.id, candidate.id));
+        .where(
+          and(eq(schema.prompts.pageId, candidate.pageId), eq(schema.prompts.id, candidate.id)),
+        );
 
       await db
         .update(schema.pages)
