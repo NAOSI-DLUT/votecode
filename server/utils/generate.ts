@@ -18,7 +18,9 @@ export async function generate(pageId: string, promptId: number) {
   if (!prompt) {
     throw createError({ statusCode: 404, statusMessage: "Prompt not found" });
   }
-  console.info(`[generate] start pageId=${prompt.pageId} promptId=${prompt.id}`);
+  console.info(
+    `[generate] start pageId=${prompt.pageId} promptId=${prompt.id}`,
+  );
 
   const parent = prompt.parent
     ? await db.query.prompts.findFirst({
@@ -165,8 +167,18 @@ export async function generate(pageId: string, promptId: number) {
       tools: [readHtmlTool, writeHtmlTool, replaceHtmlTool],
     });
 
+    let needsResponseBreak = false;
     for await (const event of result.fullStream as any) {
+      if (event.type === "tool-call") {
+        needsResponseBreak = responseText.trim().length > 0;
+        continue;
+      }
+
       if (event.type === "text-delta") {
+        if (needsResponseBreak) {
+          responseText = `${responseText.trimEnd()}\n\n`;
+          needsResponseBreak = false;
+        }
         responseText += event.text;
         await storage.setItem(`pages:${prompt.pageId}`, {
           id: prompt.id,
