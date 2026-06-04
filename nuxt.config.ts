@@ -11,9 +11,6 @@ export default defineNuxtConfig({
   hub: {
     db: "postgresql",
   },
-  ui: {
-    fonts: false,
-  },
   appConfig: {
     voteIntervalMinutes: 5,
   },

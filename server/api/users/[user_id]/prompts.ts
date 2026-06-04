@@ -20,9 +20,11 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  return await db
+  const prompts = await db
     .select()
     .from(schema.prompts)
     .where(eq(schema.prompts.userId, user_id))
     .orderBy(desc(schema.prompts.createdAt));
+
+  return { user, prompts };
 });
