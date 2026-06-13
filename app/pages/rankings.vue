@@ -6,7 +6,6 @@ type RankingResponse = {
     id: string;
     name: string;
     avatarUrl: string;
-    htmlUrl: string;
     voteCount: number;
   }>;
   pages: Array<{

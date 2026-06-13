@@ -11,7 +11,7 @@ const route = useRoute();
 const toast = useToast();
 const colorMode = useColorMode();
 const timer = ref(0);
-const { user, clear } = useUserSession();
+const { user } = useUserSession();
 
 const pageId = computed(() => route.params.page_id as string);
 const mode = ref<"preview" | "code">("preview");
@@ -369,32 +369,7 @@ onUnmounted(() => {
                 to="/rankings"
               />
               <UColorModeButton />
-              <UDropdownMenu
-                v-if="user"
-                :items="[
-                  {
-                    label: 'Logout',
-                    icon: 'i-lucide-log-out',
-                    onSelect: clear,
-                  },
-                ]"
-              >
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  :label="user.name"
-                  :avatar="{ src: user.avatar_url }"
-                />
-              </UDropdownMenu>
-              <UButton
-                v-else
-                color="neutral"
-                variant="ghost"
-                icon="i-lucide-log-in"
-                label="Sign in"
-                to="/api/auth/github"
-                external
-              />
+              <AuthButton />
             </template>
           </UDashboardNavbar>
         </template>

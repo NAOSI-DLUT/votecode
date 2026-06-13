@@ -7,7 +7,6 @@ export default defineEventHandler(async () => {
       id: schema.users.id,
       name: schema.users.name,
       avatarUrl: schema.users.avatar_url,
-      htmlUrl: schema.users.html_url,
       voteCount: count(schema.votes).as("voteCount"),
     })
     .from(schema.users)
@@ -23,7 +22,6 @@ export default defineEventHandler(async () => {
       schema.users.id,
       schema.users.name,
       schema.users.avatar_url,
-      schema.users.html_url,
     )
     .orderBy(desc(count(schema.votes)));
 

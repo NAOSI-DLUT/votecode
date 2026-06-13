@@ -14,7 +14,6 @@ export const users = pgTable("users", {
   id: text().primaryKey(),
   name: text().notNull(),
   avatar_url: text().notNull(),
-  html_url: text().notNull(),
 });
 
 export const pages = pgTable("pages", {

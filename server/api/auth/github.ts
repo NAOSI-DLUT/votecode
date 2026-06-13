@@ -8,7 +8,6 @@ export default defineOAuthGitHubEventHandler({
         id: user.login,
         name: user.name || user.login,
         avatar_url: user.avatar_url,
-        html_url: user.html_url,
       })
       .onConflictDoNothing();
     await setUserSession(event, {
@@ -16,7 +15,6 @@ export default defineOAuthGitHubEventHandler({
         id: user.login,
         name: user.name || user.login,
         avatar_url: user.avatar_url,
-        html_url: user.html_url,
       },
     });
     return sendRedirect(event, "/");

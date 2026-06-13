@@ -58,7 +58,6 @@ export default defineEventHandler(async (event) => {
       id: user.id,
       name: user.name,
       avatar_url: user.avatar_url,
-      html_url: user.html_url,
     },
     voteCount: 0,
     voted: false,
