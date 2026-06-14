@@ -87,6 +87,11 @@ const promptPlaceholder = computed(() => {
   if (hasPrompt.value) return "You have already submitted a prompt this round";
   return "";
 });
+type AvatarSize = "3xs" | "2xs" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
+
+function leadingAvatarSize(ui: any): AvatarSize {
+  return ui.leadingAvatarSize() as AvatarSize;
+}
 
 function promptStatusColor(status?: string) {
   if (status === "pending") return "warning";
@@ -102,6 +107,9 @@ const messages = computed<any[]>(() => {
         {
           id: prompt.id.toString(),
           role: "user",
+          metadata: {
+            userId: prompt.user?.id ?? prompt.userId,
+          },
           avatar: {
             src: prompt.user?.avatar_url,
             chip: {
@@ -302,6 +310,26 @@ onUnmounted(() => {
             :assistant="{ avatar: { icon: 'i-lucide-bot' } }"
             status="submitted"
           >
+            <template #leading="{ message, avatar, ui }">
+              <UTooltip
+                v-if="message.role === 'user'"
+                :text="`User ID: ${message.metadata?.userId || 'unknown'}`"
+              >
+                <UAvatar
+                  :size="leadingAvatarSize(ui)"
+                  v-bind="avatar"
+                  data-slot="leadingAvatar"
+                  :class="ui.leadingAvatar()"
+                />
+              </UTooltip>
+              <UAvatar
+                v-else-if="avatar"
+                :size="leadingAvatarSize(ui)"
+                v-bind="avatar"
+                data-slot="leadingAvatar"
+                :class="ui.leadingAvatar()"
+              />
+            </template>
             <template #content="{ message }">
               <template
                 v-for="(part, index) in message.parts ?? []"
